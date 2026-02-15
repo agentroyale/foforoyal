@@ -20,8 +20,8 @@ enum MatchState {
 	GAME_OVER = 5,
 }
 
-const MIN_PLAYERS := 2
-const COUNTDOWN_SECONDS := 10
+const MIN_PLAYERS := 1
+const COUNTDOWN_SECONDS := 5
 const MAP_SIZE := 1024.0
 
 var game_mode: GameMode = GameMode.SURVIVAL

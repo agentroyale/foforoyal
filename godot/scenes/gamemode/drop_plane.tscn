@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" uid="uid://dbql72gasar7d" path="res://assets/models/battle_plane.glb" id="1_plane"]
+
+[node name="DropPlane" type="Node3D"]
+
+[node name="Model" parent="." instance=ExtResource("1_plane")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)

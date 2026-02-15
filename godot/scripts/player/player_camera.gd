@@ -25,6 +25,7 @@ const SWAY_CROUCH_MULT := 0.5
 
 var mouse_captured := true
 var is_aiming := false
+var camera_distance_override := -1.0  ## Set >= 0 to override default distance (used by drop)
 var _camera_distance := DEFAULT_CAMERA_DISTANCE
 var _target_shoulder_side := 1.0  # 1.0 = right, -1.0 = left
 var _current_shoulder_side := 1.0
@@ -78,8 +79,10 @@ func _process(delta: float) -> void:
 			_orbit_yaw = 0.0
 	rotation.y = _orbit_yaw
 
-	# ADS lerp — camera distance and FOV
+	# ADS lerp — camera distance and FOV (override takes priority, e.g. during BR drop)
 	var target_distance := ADS_CAMERA_DISTANCE if is_aiming else DEFAULT_CAMERA_DISTANCE
+	if camera_distance_override >= 0.0:
+		target_distance = camera_distance_override
 	_camera_distance = lerpf(_camera_distance, target_distance, ADS_LERP_SPEED * delta)
 	var normal_fov := _get_settings_fov()
 	var target_fov := ADS_FOV if is_aiming else normal_fov
@@ -103,21 +106,26 @@ func _process(delta: float) -> void:
 	_update_sway(delta)
 
 	# Camera distance + wall clipping (ray from shoulder offset origin)
+	# Skip wall clipping when distance override is active (e.g. during BR drop)
 	if _camera_distance > 0.0:
-		var space := get_world_3d().direct_space_state
-		if space:
-			var from := global_position + global_transform.basis.x * shoulder_x
-			var to := from + global_transform.basis.z * _camera_distance
-			var query := PhysicsRayQueryParameters3D.create(from, to)
-			query.exclude = [get_parent().get_rid()]
-			var result := space.intersect_ray(query)
-			if result:
-				var safe_dist := from.distance_to(result["position"]) - CLIP_MARGIN
-				camera.position.z = maxf(safe_dist, 0.0)
+		if camera_distance_override >= 0.0:
+			# Override mode: direct position, no wall clipping
+			camera.position.z = _camera_distance
+		else:
+			var space := get_world_3d().direct_space_state
+			if space:
+				var from := global_position + global_transform.basis.x * shoulder_x
+				var to := from + global_transform.basis.z * _camera_distance
+				var query := PhysicsRayQueryParameters3D.create(from, to)
+				query.exclude = [get_parent().get_rid()]
+				var result := space.intersect_ray(query)
+				if result:
+					var safe_dist := from.distance_to(result["position"]) - CLIP_MARGIN
+					camera.position.z = maxf(safe_dist, 0.0)
+				else:
+					camera.position.z = _camera_distance
 			else:
 				camera.position.z = _camera_distance
-		else:
-			camera.position.z = _camera_distance
 		camera.position.x = shoulder_x
 	else:
 		camera.position = Vector3.ZERO

@@ -53,9 +53,8 @@ func test_register_player_default_name() -> void:
 
 func test_countdown_requires_min_players() -> void:
 	_mm.start_lobby(_mm.GameMode.BATTLE_ROYALE)
-	_mm.register_player(1, "P1")
+	# No players registered yet — countdown should fail
 	_mm.start_countdown()
-	# Only 1 player, should stay in WAITING
 	assert_eq(_mm.match_state, _mm.MatchState.WAITING_FOR_PLAYERS)
 
 
@@ -64,8 +63,7 @@ func test_countdown_requires_min_players() -> void:
 func test_countdown_starts_with_min_players() -> void:
 	_mm.start_lobby(_mm.GameMode.BATTLE_ROYALE)
 	_mm.register_player(1, "P1")
-	_mm.register_player(2, "P2")
-	_mm.start_countdown()
+	# MIN_PLAYERS=1, so countdown auto-started on register
 	assert_eq(_mm.match_state, _mm.MatchState.COUNTDOWN)
 
 

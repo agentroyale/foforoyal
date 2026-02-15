@@ -44,7 +44,9 @@ func test_position_at_start() -> void:
 func test_position_at_midpoint() -> void:
 	var path := FlightPath.generate_path(1024.0, 42)
 	var pos := FlightPath.get_position_at_progress(path["start"], path["end"], 0.5)
-	var expected := path["start"].lerp(path["end"], 0.5)
+	var start_pos: Vector3 = path["start"]
+	var end_pos: Vector3 = path["end"]
+	var expected: Vector3 = start_pos.lerp(end_pos, 0.5)
 	assert_almost_eq(pos.x, expected.x, 0.1)
 	assert_almost_eq(pos.z, expected.z, 0.1)
 
@@ -54,7 +56,10 @@ func test_position_at_midpoint() -> void:
 func test_position_at_end() -> void:
 	var path := FlightPath.generate_path(1024.0, 42)
 	var pos := FlightPath.get_position_at_progress(path["start"], path["end"], 1.0)
-	assert_eq(pos, path["end"])
+	var end_pos: Vector3 = path["end"]
+	assert_almost_eq(pos.x, end_pos.x, 0.01)
+	assert_almost_eq(pos.y, end_pos.y, 0.01)
+	assert_almost_eq(pos.z, end_pos.z, 0.01)
 
 
 # ─── Test 7: Flight altitude ───

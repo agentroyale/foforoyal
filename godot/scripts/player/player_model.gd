@@ -27,6 +27,8 @@ var _one_shot_playing := false
 var _equipped_weapon_type: int = -1  # WeaponData.WeaponType, -1 = none
 var _fire_burst_timer := 0.0
 var _wants_hold := false  ## true when current anim should freeze at last frame
+var drop_mode := false  ## true during BR drop — hides weapon, forces freefall anim
+var _weapon_hidden_for_drop := false  ## tracks if weapon was hidden by drop
 
 
 func _ready() -> void:
@@ -112,6 +114,14 @@ func _process(delta: float) -> void:
 			_anim_player.play(_current_anim)
 			_anim_player.seek(maxf(anim.length - 0.001, 0.0))
 			_anim_player.speed_scale = 0.0
+
+	# Drop mode — force freefall anim, hide weapon
+	if drop_mode:
+		_play_anim("movement/Jump_Idle")
+		if _weapon_visual and not _weapon_hidden_for_drop:
+			_weapon_visual.set_visible(false)
+			_weapon_hidden_for_drop = true
+		return
 
 	# Locomotion (skip if one-shot or fire burst is playing)
 	if not _one_shot_playing and _fire_burst_timer <= 0.0:
@@ -287,6 +297,20 @@ func clear_weapon_visual() -> void:
 		_weapon_visual.clear()
 		_weapon_visual = null
 	_equipped_weapon_type = -1
+
+
+func enter_drop_mode() -> void:
+	drop_mode = true
+	if _weapon_visual:
+		_weapon_visual.set_visible(false)
+		_weapon_hidden_for_drop = true
+
+
+func exit_drop_mode() -> void:
+	drop_mode = false
+	if _weapon_visual and _weapon_hidden_for_drop:
+		_weapon_visual.set_visible(true)
+		_weapon_hidden_for_drop = false
 
 
 func _is_player_aiming() -> bool:

@@ -132,5 +132,10 @@ func get_muzzle_global_position() -> Vector3:
 	return Vector3.ZERO
 
 
+func set_visible(vis: bool) -> void:
+	if _bone_attachment and is_instance_valid(_bone_attachment):
+		_bone_attachment.visible = vis
+
+
 func get_pivot() -> Node3D:
 	return _pivot

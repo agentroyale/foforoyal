@@ -2,10 +2,25 @@ extends Node
 ## Server-authoritative combat networking.
 ## Handles fire requests, hit validation with lag compensation,
 ## damage sync, death broadcast, and VFX replication.
+## Rate limiting: rejects fire spam, tracks violations, kicks abusers.
+## Distance-filtered VFX: only sends VFX RPCs to nearby peers.
 
 signal kill_event(killer_name: String, victim_name: String, weapon_name: String)
 
 const MAX_FIRE_RATE_TOLERANCE := 0.02  # Allow slight timing variance
+
+# Rate limiting
+const USE_RATE_LIMITING := true
+const MIN_FIRE_INTERVAL := 50.0  # Milliseconds (20Hz max, SMG ~15Hz)
+const VIOLATION_THRESHOLD := 5  # Kick after this many violations in window
+const VIOLATION_WINDOW := 10.0  # Seconds
+
+# Distance-filtered VFX
+const USE_DISTANCE_VFX := true
+const COMBAT_VFX_RADIUS := 200.0  # Meters
+
+var _last_fire_time: Dictionary = {}  # peer_id -> float (msec)
+var _violations: Dictionary = {}  # peer_id -> Array[float] (timestamps)
 
 
 func _ready() -> void:
@@ -15,6 +30,10 @@ func _ready() -> void:
 
 
 func _on_peer_disconnected(peer_id: int) -> void:
+	# Clean rate limiting state
+	_last_fire_time.erase(peer_id)
+	_violations.erase(peer_id)
+
 	# Find that player's NetworkSync and clear lag comp
 	var container := get_tree().current_scene.get_node_or_null("Players")
 	if not container:
@@ -26,6 +45,68 @@ func _on_peer_disconnected(peer_id: int) -> void:
 			ns.get_lag_compensation().clear_peer(peer_id)
 
 
+# === Rate Limiting ===
+
+func _check_rate_limit(sender_id: int) -> bool:
+	if not USE_RATE_LIMITING:
+		return true
+
+	var now := Time.get_ticks_msec() as float
+	if _last_fire_time.has(sender_id):
+		var elapsed := now - (_last_fire_time[sender_id] as float)
+		if elapsed < MIN_FIRE_INTERVAL:
+			_record_violation(sender_id, now)
+			return false
+
+	_last_fire_time[sender_id] = now
+	return true
+
+
+func _record_violation(sender_id: int, now_msec: float) -> void:
+	if not _violations.has(sender_id):
+		_violations[sender_id] = []
+
+	var violations_arr: Array = _violations[sender_id]
+	violations_arr.append(now_msec)
+
+	# Remove old violations outside the window
+	var cutoff := now_msec - (VIOLATION_WINDOW * 1000.0)
+	while violations_arr.size() > 0 and (violations_arr[0] as float) < cutoff:
+		violations_arr.pop_front()
+
+	if violations_arr.size() >= VIOLATION_THRESHOLD:
+		print("[CombatNetcode] Kicking peer %d for fire rate abuse (%d violations)" % [
+			sender_id, violations_arr.size()])
+		_violations.erase(sender_id)
+		_last_fire_time.erase(sender_id)
+		if multiplayer.multiplayer_peer:
+			multiplayer.multiplayer_peer.disconnect_peer(sender_id)
+
+
+func get_violation_count(peer_id: int) -> int:
+	if _violations.has(peer_id):
+		return (_violations[peer_id] as Array).size()
+	return 0
+
+
+# === Helpers for distance-filtered broadcast ===
+
+func _get_vfx_recipients(sender_id: int, origin_pos: Vector3) -> Array:
+	if USE_DISTANCE_VFX and NetworkSync.USE_INTEREST_MANAGEMENT:
+		var nearby := NetworkSync.get_nearby_peers_for_position(origin_pos)
+		var result: Array = []
+		for peer_id in nearby:
+			if peer_id != sender_id:
+				result.append(peer_id)
+		return result
+	else:
+		var result: Array = []
+		for peer_id in NetworkManager.connected_peers:
+			if peer_id != sender_id:
+				result.append(peer_id)
+		return result
+
+
 # === CLIENT: Request fire ===
 
 @rpc("any_peer", "reliable")
@@ -35,6 +116,11 @@ func request_fire(cam_origin: Vector3, cam_dir: Vector3, weapon_type: int,
 		return
 
 	var sender_id := multiplayer.get_remote_sender_id()
+
+	# Rate limiting check
+	if not _check_rate_limit(sender_id):
+		return
+
 	var shooter := _get_player_node(sender_id)
 	if not shooter:
 		return
@@ -56,7 +142,7 @@ func request_fire(cam_origin: Vector3, cam_dir: Vector3, weapon_type: int,
 		WeaponData.WeaponType.MELEE:
 			_server_melee(sender_id, shooter, cam_origin, cam_dir)
 
-	# Broadcast fire VFX to all other clients
+	# Broadcast fire VFX to nearby clients
 	var muzzle_pos := Vector3.ZERO
 	var model := shooter.get_node_or_null("PlayerModel") as PlayerModel
 	if model:
@@ -64,10 +150,13 @@ func request_fire(cam_origin: Vector3, cam_dir: Vector3, weapon_type: int,
 	else:
 		muzzle_pos = shooter_pos + Vector3.UP * 1.5
 
-	for peer_id in NetworkManager.connected_peers:
-		if peer_id != sender_id:
+	var recipients := _get_vfx_recipients(sender_id, muzzle_pos)
+	for peer_id in recipients:
+		if peer_id != 1:  # Don't send to server
 			_replicate_fire_vfx.rpc_id(peer_id, sender_id, muzzle_pos,
 				cam_origin + cam_dir * 120.0, weapon_type)
+			if NetworkMetrics:
+				NetworkMetrics.record_rpc(40)
 
 
 func _server_hitscan(sender_id: int, shooter: CharacterBody3D,
@@ -105,7 +194,7 @@ func _server_hitscan(sender_id: int, shooter: CharacterBody3D,
 	var hs := body.get_node_or_null("HealthSystem") as HealthSystem
 	if not hs:
 		# Hit non-damageable (wall, terrain) -- broadcast impact
-		_broadcast_impact(hit_point, hit_normal)
+		_broadcast_impact(hit_point, hit_normal, sender_id)
 		return
 
 	# Calculate damage
@@ -134,7 +223,7 @@ func _server_hitscan(sender_id: int, shooter: CharacterBody3D,
 		hs.current_hp, hs.is_dead)
 
 	# Broadcast impact VFX
-	_broadcast_impact(hit_point, hit_normal)
+	_broadcast_impact(hit_point, hit_normal, sender_id)
 
 	# Kill event
 	if is_kill:
@@ -266,9 +355,12 @@ func _replicate_fire_vfx(shooter_peer_id: int, muzzle_pos: Vector3,
 		get_tree().current_scene.add_child(flash)
 
 
-func _broadcast_impact(hit_pos: Vector3, hit_normal: Vector3) -> void:
-	for peer_id in NetworkManager.connected_peers:
+func _broadcast_impact(hit_pos: Vector3, hit_normal: Vector3, sender_id: int = 0) -> void:
+	var recipients := _get_vfx_recipients(sender_id, hit_pos)
+	for peer_id in recipients:
 		_replicate_impact.rpc_id(peer_id, hit_pos, hit_normal)
+		if NetworkMetrics:
+			NetworkMetrics.record_rpc(24)
 
 
 @rpc("authority", "unreliable")
@@ -304,10 +396,14 @@ func request_equip(slot_index: int) -> void:
 	var player := _get_player_node(sender_id)
 	if not player:
 		return
-	# Broadcast equip SFX to other clients
-	for peer_id in NetworkManager.connected_peers:
-		if peer_id != sender_id:
+	# Broadcast equip SFX to nearby clients
+	var player_pos := player.global_position
+	var recipients := _get_vfx_recipients(sender_id, player_pos)
+	for peer_id in recipients:
+		if peer_id != 1:
 			_replicate_equip.rpc_id(peer_id, sender_id)
+			if NetworkMetrics:
+				NetworkMetrics.record_rpc(8)
 
 
 @rpc("authority", "unreliable")

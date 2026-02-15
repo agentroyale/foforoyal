@@ -1,45 +1,8 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=2 format=3]
 
-[sub_resource type="SphereMesh" id="SphereMesh_canopy"]
-radius = 1.5
-height = 1.2
-radial_segments = 16
-rings = 8
-is_hemisphere = true
-
-[sub_resource type="StandardMaterial3D" id="Material_canopy"]
-albedo_color = Color(0.9, 0.3, 0.2, 0.85)
-transparency = 1
-cull_mode = 2
-emission_enabled = true
-emission = Color(0.8, 0.2, 0.1)
-emission_energy_multiplier = 0.3
-
-[sub_resource type="CylinderMesh" id="CylinderMesh_cord"]
-top_radius = 0.01
-bottom_radius = 0.01
-height = 3.0
-radial_segments = 4
+[ext_resource type="PackedScene" uid="uid://wip2upw5qpka" path="res://assets/models/parachute.glb" id="1_chute"]
 
 [node name="Parachute" type="Node3D"]
 
-[node name="Canopy" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0)
-mesh = SubResource("SphereMesh_canopy")
-material_override = SubResource("Material_canopy")
-
-[node name="Cord1" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4, 1.5, 0.4)
-mesh = SubResource("CylinderMesh_cord")
-
-[node name="Cord2" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 1.5, 0.4)
-mesh = SubResource("CylinderMesh_cord")
-
-[node name="Cord3" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4, 1.5, -0.4)
-mesh = SubResource("CylinderMesh_cord")
-
-[node name="Cord4" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 1.5, -0.4)
-mesh = SubResource("CylinderMesh_cord")
+[node name="Model" parent="." instance=ExtResource("1_chute")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)

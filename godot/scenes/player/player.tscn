@@ -14,6 +14,7 @@
 [ext_resource type="Script" path="res://scripts/crafting/crafting_queue.gd" id="12_craftqueue"]
 [ext_resource type="Script" path="res://scripts/player/stamina_system.gd" id="13_stamina"]
 [ext_resource type="Script" path="res://scripts/networking/network_sync.gd" id="14_netsync"]
+[ext_resource type="Script" path="res://scripts/player/parachute_controller.gd" id="15_parachute"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_001"]
 height = 1.8
@@ -76,3 +77,6 @@ script = ExtResource("13_stamina")
 
 [node name="NetworkSync" type="Node" parent="."]
 script = ExtResource("14_netsync")
+
+[node name="ParachuteController" type="Node" parent="."]
+script = ExtResource("15_parachute")

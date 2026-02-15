@@ -90,7 +90,13 @@ func _on_world_ready(_seed: int) -> void:
 
 	var player := $Player as CharacterBody3D
 	if MatchManager.is_br_mode():
-		# In BR, player starts in lobby (spawner handles position)
+		# In BR, player starts on lobby platform
+		var lobby := get_node_or_null("LobbyArea")
+		if lobby and lobby.has_method("get_spawn_position"):
+			player.global_position = lobby.get_spawn_position(0)
+		else:
+			player.global_position = Vector3(512, 201, 512)
+		player.velocity = Vector3.ZERO
 		player.set_physics_process(true)
 	else:
 		player.global_position = Vector3(spawn_x, safe_y, spawn_z)

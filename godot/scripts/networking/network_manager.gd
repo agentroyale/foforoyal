@@ -11,13 +11,19 @@ signal server_started()
 const DEFAULT_PORT := 27015
 const MAX_CLIENTS := 64
 
+# ENet bandwidth limits (bytes/sec). 0 = unlimited.
+const SERVER_OUT_BANDWIDTH := 256 * 1024  # 256 KB/s outbound
+const SERVER_IN_BANDWIDTH := 128 * 1024   # 128 KB/s inbound
+const CLIENT_OUT_BANDWIDTH := 32 * 1024   # 32 KB/s outbound (clients send little)
+const CLIENT_IN_BANDWIDTH := 256 * 1024   # 256 KB/s inbound
+
 var connected_peers: Dictionary = {}  # peer_id -> { "join_time": int }
 var _active_peer: bool = false  # Tracks whether we explicitly set a peer
 
 
 func host_server(port: int = DEFAULT_PORT) -> Error:
 	var peer := ENetMultiplayerPeer.new()
-	var err := peer.create_server(port, MAX_CLIENTS)
+	var err := peer.create_server(port, MAX_CLIENTS, 0, SERVER_IN_BANDWIDTH, SERVER_OUT_BANDWIDTH)
 	if err != OK:
 		return err
 	multiplayer.multiplayer_peer = peer
@@ -30,7 +36,7 @@ func host_server(port: int = DEFAULT_PORT) -> Error:
 
 func join_server(address: String, port: int = DEFAULT_PORT) -> Error:
 	var peer := ENetMultiplayerPeer.new()
-	var err := peer.create_client(address, port)
+	var err := peer.create_client(address, port, 0, CLIENT_IN_BANDWIDTH, CLIENT_OUT_BANDWIDTH)
 	if err != OK:
 		return err
 	multiplayer.multiplayer_peer = peer
