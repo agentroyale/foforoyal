@@ -21,6 +21,7 @@ var _vignette: Control
 var _title_label: Label
 var _cause_label: Label
 var _respawn_button: Button
+var _placement_label: Label
 var _active := false
 var _damage_source: String = ""
 
@@ -30,6 +31,7 @@ const DAMAGE_NAMES := {
 	1: "gunfire",
 	2: "explosion",
 	3: "falling",
+	4: "the zone",
 }
 
 
@@ -127,6 +129,22 @@ func _build_ui() -> void:
 	_respawn_button.pressed.connect(_on_respawn_pressed)
 	add_child(_respawn_button)
 
+	# Placement label for BR
+	_placement_label = Label.new()
+	_placement_label.name = "PlacementLabel"
+	_placement_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	_placement_label.offset_left = -200.0
+	_placement_label.offset_right = 200.0
+	_placement_label.offset_top = 95.0
+	_placement_label.offset_bottom = 125.0
+	_placement_label.text = ""
+	_placement_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_placement_label.add_theme_font_size_override("font_size", 22)
+	_placement_label.add_theme_color_override("font_color", Color(0.9, 0.8, 0.5))
+	_placement_label.modulate.a = 0.0
+	_placement_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_placement_label)
+
 
 func show_death(damage_type: int = -1) -> void:
 	if _active:
@@ -149,6 +167,20 @@ func show_death(damage_type: int = -1) -> void:
 	_cause_label.modulate.a = 0.0
 	_respawn_button.modulate.a = 0.0
 
+	# BR mode: hide respawn, show placement
+	var is_br := MatchManager.is_br_mode()
+	if is_br:
+		_respawn_button.visible = false
+		var local_id := NetworkManager.get_local_peer_id()
+		var placement := MatchManager.get_placement(local_id)
+		if placement > 0:
+			_placement_label.text = "%do lugar" % placement
+		else:
+			_placement_label.text = ""
+	else:
+		_respawn_button.visible = true
+		_placement_label.text = ""
+
 	# Animate fade in sequence
 	var tween := create_tween()
 	tween.set_ease(Tween.EASE_OUT)
@@ -163,8 +195,13 @@ func show_death(damage_type: int = -1) -> void:
 	# Cause label
 	tween.parallel().tween_property(_cause_label, "modulate:a", 1.0, TEXT_FADE_DURATION).set_delay(TEXT_DELAY + 0.3)
 
-	# Respawn button
-	tween.parallel().tween_property(_respawn_button, "modulate:a", 1.0, 0.5).set_delay(BUTTON_DELAY)
+	# Placement label in BR
+	if is_br and _placement_label.text != "":
+		tween.parallel().tween_property(_placement_label, "modulate:a", 1.0, 0.5).set_delay(BUTTON_DELAY)
+
+	# Respawn button (only in survival)
+	if not is_br:
+		tween.parallel().tween_property(_respawn_button, "modulate:a", 1.0, 0.5).set_delay(BUTTON_DELAY)
 
 
 func hide_death() -> void:

@@ -141,6 +141,22 @@ func _server_hitscan(sender_id: int, shooter: CharacterBody3D,
 		var killer_name := "Player %d" % sender_id
 		var victim_name := "Player %d" % victim_peer
 		_broadcast_kill.rpc(killer_name, victim_name, weapon.item_name)
+		_handle_br_kill(victim_peer, sender_id, body)
+
+
+func _handle_br_kill(victim_peer: int, killer_peer: int, victim_node: Node) -> void:
+	if not MatchManager.is_br_mode():
+		return
+	# Spawn death bag
+	var inv := victim_node.get_node_or_null("PlayerInventory") as PlayerInventory
+	if inv:
+		var bag := DeathBag.new()
+		bag.set_items_from_inventory(inv)
+		bag.global_position = (victim_node as Node3D).global_position
+		if get_tree() and get_tree().current_scene:
+			get_tree().current_scene.add_child(bag)
+		inv.clear_all()
+	MatchManager.eliminate_player(victim_peer, killer_peer)
 
 
 func _server_melee(sender_id: int, shooter: CharacterBody3D,
@@ -182,6 +198,7 @@ func _server_melee(sender_id: int, shooter: CharacterBody3D,
 		var killer_name := "Player %d" % sender_id
 		var victim_name := "Player %d" % victim_peer
 		_broadcast_kill.rpc(killer_name, victim_name, weapon.item_name)
+		_handle_br_kill(victim_peer, sender_id, body)
 
 
 # === SERVER -> CLIENT: Confirm hit to shooter ===
@@ -334,6 +351,9 @@ func _replicate_projectile(shooter_peer_id: int, muzzle_pos: Vector3,
 @rpc("any_peer", "reliable")
 func request_respawn() -> void:
 	if not multiplayer.is_server():
+		return
+	# Block respawn in Battle Royale
+	if MatchManager.is_br_mode():
 		return
 	var sender_id := multiplayer.get_remote_sender_id()
 	var player := _get_player_node(sender_id)

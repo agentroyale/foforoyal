@@ -36,11 +36,17 @@ var _style_active: StyleBoxFlat
 var _style_empty: StyleBoxFlat
 
 var _last_damage_type: int = -1
+var _zone_warning_label: Label
+var _zone_timer_label: Label
+var _pickup_label: Label
+var _pickup_fade_timer: float = 0.0
 
 
 func _ready() -> void:
 	_create_slot_styles()
 	_create_weapon_panel_style()
+	_create_zone_ui()
+	_create_pickup_label()
 	_connect_build_signals.call_deferred()
 	_connect_hotbar.call_deferred()
 	_setup_death_screen.call_deferred()
@@ -56,6 +62,51 @@ func _create_weapon_panel_style() -> void:
 	if weapon_panel:
 		weapon_panel.add_theme_stylebox_override("panel", _weapon_panel_style)
 		weapon_panel.visible = false
+
+
+func _create_zone_ui() -> void:
+	# Zone warning (center screen)
+	_zone_warning_label = Label.new()
+	_zone_warning_label.name = "ZoneWarning"
+	_zone_warning_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	_zone_warning_label.offset_left = -200.0
+	_zone_warning_label.offset_right = 200.0
+	_zone_warning_label.offset_top = 60.0
+	_zone_warning_label.offset_bottom = 90.0
+	_zone_warning_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_zone_warning_label.add_theme_font_size_override("font_size", 20)
+	_zone_warning_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.2))
+	_zone_warning_label.visible = false
+	add_child(_zone_warning_label)
+
+	# Zone timer (top center)
+	_zone_timer_label = Label.new()
+	_zone_timer_label.name = "ZoneTimer"
+	_zone_timer_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	_zone_timer_label.offset_left = -100.0
+	_zone_timer_label.offset_right = 100.0
+	_zone_timer_label.offset_top = 10.0
+	_zone_timer_label.offset_bottom = 40.0
+	_zone_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_zone_timer_label.add_theme_font_size_override("font_size", 18)
+	_zone_timer_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.9))
+	_zone_timer_label.visible = false
+	add_child(_zone_timer_label)
+
+
+func _create_pickup_label() -> void:
+	_pickup_label = Label.new()
+	_pickup_label.name = "PickupLabel"
+	_pickup_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	_pickup_label.offset_left = -200.0
+	_pickup_label.offset_right = 200.0
+	_pickup_label.offset_top = -60.0
+	_pickup_label.offset_bottom = -30.0
+	_pickup_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_pickup_label.add_theme_font_size_override("font_size", 16)
+	_pickup_label.add_theme_color_override("font_color", Color(0.9, 0.85, 0.6))
+	_pickup_label.visible = false
+	add_child(_pickup_label)
 
 
 func _create_slot_styles() -> void:
@@ -172,6 +223,15 @@ func _process(_delta: float) -> void:
 		stamina_bar.set_stamina(_stamina_system.current_stamina, _stamina_system.max_stamina)
 		stamina_bar.set_draining(_stamina_system.is_draining)
 
+	# Update zone UI
+	_update_zone_ui()
+
+	# Pickup label fade
+	if _pickup_label and _pickup_label.visible:
+		_pickup_fade_timer -= _delta
+		if _pickup_fade_timer <= 0.0:
+			_pickup_label.visible = false
+
 
 func _on_damage_taken(_amount: float, damage_type: int) -> void:
 	_last_damage_type = damage_type
@@ -220,6 +280,38 @@ func _on_spread_changed(spread_degrees: float) -> void:
 func _on_hit_confirmed(hitzone: int, _is_kill: bool) -> void:
 	if crosshair:
 		crosshair.show_hitmarker(hitzone == HitzoneSystem.Hitzone.HEAD)
+
+
+func _update_zone_ui() -> void:
+	if not MatchManager.is_br_mode():
+		if _zone_warning_label:
+			_zone_warning_label.visible = false
+		if _zone_timer_label:
+			_zone_timer_label.visible = false
+		return
+	var zc := get_tree().current_scene.get_node_or_null("ZoneController") if is_inside_tree() else null
+	if not zc:
+		return
+	# Zone timer
+	if _zone_timer_label:
+		var time_left := zc.get_time_until_shrink() if zc.has_method("get_time_until_shrink") else 0.0
+		if time_left > 0.0:
+			_zone_timer_label.text = "Zona: %ds" % ceili(time_left)
+			_zone_timer_label.visible = true
+		else:
+			_zone_timer_label.visible = false
+	# Zone warning
+	if _zone_warning_label and _player:
+		var outside := ZoneSystem.is_outside_zone(_player.global_position, zc.current_center, zc.current_radius)
+		_zone_warning_label.text = "FORA DA ZONA!"
+		_zone_warning_label.visible = outside
+
+
+func show_pickup_notification(item_name: String) -> void:
+	if _pickup_label:
+		_pickup_label.text = "%s coletado" % item_name
+		_pickup_label.visible = true
+		_pickup_fade_timer = 2.0
 
 
 func show_interaction_prompt(text: String) -> void:

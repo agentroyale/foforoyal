@@ -15,6 +15,9 @@ var fov: float = 75.0
 var master_volume: float = 80.0
 var sfx_volume: float = 80.0
 
+## Multiplayer
+var player_name: String = "Fofolete"
+
 ## Display
 var fullscreen: bool = false
 var vsync: bool = true
@@ -35,6 +38,7 @@ func load_settings() -> void:
 
 	mouse_sensitivity = config.get_value("gameplay", "mouse_sensitivity", 1.0)
 	fov = config.get_value("gameplay", "fov", 75.0)
+	player_name = config.get_value("multiplayer", "player_name", "Fofolete")
 	master_volume = config.get_value("audio", "master_volume", 80.0)
 	sfx_volume = config.get_value("audio", "sfx_volume", 80.0)
 	fullscreen = config.get_value("display", "fullscreen", false)
@@ -45,6 +49,7 @@ func save_settings() -> void:
 	var config := ConfigFile.new()
 	config.set_value("gameplay", "mouse_sensitivity", mouse_sensitivity)
 	config.set_value("gameplay", "fov", fov)
+	config.set_value("multiplayer", "player_name", player_name)
 	config.set_value("audio", "master_volume", master_volume)
 	config.set_value("audio", "sfx_volume", sfx_volume)
 	config.set_value("display", "fullscreen", fullscreen)

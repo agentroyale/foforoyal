@@ -64,5 +64,11 @@ func _despawn_player(peer_id: int) -> void:
 
 
 func _get_spawn_position(peer_id: int) -> Vector3:
+	# In BR mode, spawn in lobby area
+	if MatchManager.is_br_mode():
+		var lobby := get_tree().current_scene.get_node_or_null("LobbyArea")
+		if lobby and lobby.has_method("get_spawn_position"):
+			var idx := MatchManager.alive_players.size()
+			return lobby.get_spawn_position(idx)
 	var idx := peer_id % _spawn_points.size()
 	return _spawn_points[idx]

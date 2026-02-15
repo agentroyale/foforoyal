@@ -7,7 +7,7 @@ signal healed(amount: float)
 signal died()
 signal respawned()
 
-enum DamageType { MELEE = 0, BULLET = 1, EXPLOSIVE = 2, FALL = 3 }
+enum DamageType { MELEE = 0, BULLET = 1, EXPLOSIVE = 2, FALL = 3, ZONE = 4 }
 
 @export var max_hp: float = 100.0
 

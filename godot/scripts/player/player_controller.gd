@@ -18,6 +18,7 @@ const FALL_DAMAGE_MULTIPLIER := 10.0
 var is_crouching := false
 var current_speed := WALK_SPEED
 var _previous_velocity_y: float = 0.0
+var movement_disabled: bool = false
 
 @onready var collision_shape: CollisionShape3D = $CollisionShape3D
 @onready var camera_pivot: Node3D = $CameraPivot
@@ -78,8 +79,16 @@ func _give_starter_weapon() -> void:
 		wc.equip_weapon(w)
 
 
+func disable_movement() -> void:
+	movement_disabled = true
+
+func enable_movement() -> void:
+	movement_disabled = false
+
 func _physics_process(delta: float) -> void:
 	if multiplayer.has_multiplayer_peer() and not is_multiplayer_authority():
+		return
+	if movement_disabled:
 		return
 	_previous_velocity_y = velocity.y
 	_apply_gravity(delta)
@@ -158,6 +167,10 @@ func get_collision_height() -> float:
 
 func _check_fall_damage() -> void:
 	if is_on_floor() and _previous_velocity_y < -FALL_DAMAGE_THRESHOLD:
+		# Skip fall damage if parachute is active
+		var pc := get_node_or_null("ParachuteController")
+		if pc and pc.get("is_dropping"):
+			return
 		var fall_speed := absf(_previous_velocity_y)
 		var damage := calculate_fall_damage(fall_speed)
 		var hs := get_node_or_null("HealthSystem") as HealthSystem

@@ -15,6 +15,7 @@ const BUILDING_COLOR := Color(0.7, 0.6, 0.4, 0.8)
 const BUILDING_SIZE := 3.0
 const RESOURCE_COLOR := Color(0.5, 0.7, 0.9, 0.5)
 const NORTH_COLOR := Color(0.9, 0.3, 0.3, 0.7)
+const ZONE_COLOR := Color(0.3, 0.2, 0.9, 0.6)
 
 var _player: CharacterBody3D = null
 var _visible := true
@@ -89,6 +90,9 @@ func _draw() -> void:
 					BUILDING_COLOR
 				)
 
+	# Zone circle (BR mode)
+	_draw_zone_circle(center, player_pos, player_rot)
+
 	# Player arrow (always at center, rotated)
 	_draw_player_arrow(center, player_rot)
 
@@ -102,6 +106,22 @@ func _draw() -> void:
 		var outer_p := center + Vector2(sin(angle), -cos(angle)) * MAP_RADIUS
 		var tick_color := NORTH_COLOR if i == 0 else BORDER_COLOR
 		draw_line(inner_p, outer_p, tick_color, 2.0)
+
+
+func _draw_zone_circle(center: Vector2, player_pos: Vector3, player_rot: float) -> void:
+	if not MatchManager.is_br_mode():
+		return
+	var zc := get_tree().current_scene.get_node_or_null("ZoneController") if is_inside_tree() else null
+	if not zc:
+		return
+	var zone_center: Vector3 = zc.current_center
+	var zone_radius: float = zc.current_radius
+	if zone_radius <= 0.0:
+		return
+	var screen_center := _world_to_minimap(zone_center, player_pos, player_rot, center)
+	var scale_factor := MAP_RADIUS / WORLD_RANGE
+	var screen_radius := zone_radius * scale_factor
+	draw_arc(screen_center, screen_radius, 0, TAU, 48, ZONE_COLOR, 2.0)
 
 
 func _draw_player_arrow(center: Vector2, _rotation_y: float) -> void:

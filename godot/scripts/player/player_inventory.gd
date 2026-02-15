@@ -70,3 +70,27 @@ func remove_item(item: ItemData, count: int = 1) -> int:
 	if removed < count:
 		removed += hotbar.remove_item(item, count - removed)
 	return removed
+
+
+func get_all_items() -> Array[Dictionary]:
+	## Returns all items across hotbar and main inventory.
+	var result: Array[Dictionary] = []
+	for i in range(HOTBAR_SIZE):
+		var slot := hotbar.get_slot(i)
+		if not slot.is_empty():
+			result.append({ "item": slot["item"], "count": slot["count"] })
+	for i in range(MAIN_SIZE):
+		var slot := main_inventory.get_slot(i)
+		if not slot.is_empty():
+			result.append({ "item": slot["item"], "count": slot["count"] })
+	return result
+
+
+func clear_all() -> void:
+	## Clears all slots in hotbar and main inventory.
+	for i in range(HOTBAR_SIZE):
+		hotbar.slots[i] = {}
+	for i in range(MAIN_SIZE):
+		main_inventory.slots[i] = {}
+	hotbar.inventory_changed.emit()
+	main_inventory.inventory_changed.emit()

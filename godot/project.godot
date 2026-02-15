@@ -26,6 +26,7 @@ SFXGenerator="*res://scripts/audio/sfx_generator.gd"
 GameSettings="*res://scripts/autoload/game_settings.gd"
 WeaponSfx="*res://scripts/audio/weapon_sfx.gd"
 CombatNetcode="*res://scripts/networking/combat_netcode.gd"
+MatchManager="*res://scripts/gamemode/match_manager.gd"
 
 [display]
 

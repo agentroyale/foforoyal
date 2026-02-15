@@ -115,6 +115,15 @@ theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
 theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
 text = "Play"
 
+[node name="MultiplayerButton" type="Button" parent="VBoxLayout/ButtonContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(280, 50)
+theme_override_font_sizes/font_size = 20
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
+text = "Multijogador"
+
 [node name="SettingsButton" type="Button" parent="VBoxLayout/ButtonContainer"]
 unique_name_in_owner = true
 layout_mode = 2

@@ -5,16 +5,19 @@ extends Control
 
 const GAME_WORLD_PATH := "res://scenes/world/game_world.tscn"
 const SETTINGS_SCENE_PATH := "res://scenes/ui/settings_menu.tscn"
+const MULTIPLAYER_SCENE_PATH := "res://scenes/ui/multiplayer_menu.tscn"
 const BG_TEXTURE_PATH := "res://assets/textures/ui/menu_background.png"
 
 @onready var button_container: VBoxContainer = %ButtonContainer
 @onready var play_button: Button = %PlayButton
+@onready var multiplayer_button: Button = %MultiplayerButton
 @onready var settings_button: Button = %SettingsButton
 @onready var quit_button: Button = %QuitButton
 @onready var background: TextureRect = %Background
 @onready var bg_fallback: ColorRect = %BackgroundFallback
 
 var _settings_instance: Control = null
+var _multiplayer_instance: Control = null
 
 
 func _ready() -> void:
@@ -36,12 +39,34 @@ func _setup_background() -> void:
 
 func _connect_buttons() -> void:
 	play_button.pressed.connect(_on_play)
+	multiplayer_button.pressed.connect(_on_multiplayer)
 	settings_button.pressed.connect(_on_settings)
 	quit_button.pressed.connect(_on_quit)
 
 
 func _on_play() -> void:
+	MatchManager.reset()
 	get_tree().change_scene_to_file(GAME_WORLD_PATH)
+
+
+func _on_multiplayer() -> void:
+	if _multiplayer_instance:
+		return
+	var mp_scene := load(MULTIPLAYER_SCENE_PATH) as PackedScene
+	if not mp_scene:
+		push_warning("MainMenu: could not load multiplayer scene")
+		return
+	_multiplayer_instance = mp_scene.instantiate()
+	_multiplayer_instance.back_pressed.connect(_on_multiplayer_back)
+	add_child(_multiplayer_instance)
+	button_container.visible = false
+
+
+func _on_multiplayer_back() -> void:
+	if _multiplayer_instance:
+		_multiplayer_instance.queue_free()
+		_multiplayer_instance = null
+	button_container.visible = true
 
 
 func _on_settings() -> void:
