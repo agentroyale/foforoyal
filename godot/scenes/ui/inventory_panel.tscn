@@ -1,0 +1,134 @@
+[gd_scene format=3 uid="uid://cinvpanel01"]
+
+[ext_resource type="Script" path="res://scripts/ui/inventory_panel.gd" id="1_script"]
+
+[node name="InventoryPanel" type="CanvasLayer"]
+layer = 5
+script = ExtResource("1_script")
+
+[node name="Background" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.5)
+mouse_filter = 0
+
+[node name="CenterPanel" type="PanelContainer" parent="."]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -230.0
+offset_top = -280.0
+offset_right = 230.0
+offset_bottom = 280.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+
+[node name="MarginContainer" type="MarginContainer" parent="CenterPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+mouse_filter = 2
+
+[node name="VBox" type="VBoxContainer" parent="CenterPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 12
+mouse_filter = 2
+
+[node name="Header" type="HBoxContainer" parent="CenterPanel/MarginContainer/VBox"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Title" type="Label" parent="CenterPanel/MarginContainer/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "INVENTORY"
+horizontal_alignment = 1
+mouse_filter = 2
+
+[node name="CloseButton" type="Button" parent="CenterPanel/MarginContainer/VBox/Header"]
+custom_minimum_size = Vector2(28, 28)
+layout_mode = 2
+text = "X"
+
+[node name="HotbarLabel" type="Label" parent="CenterPanel/MarginContainer/VBox"]
+layout_mode = 2
+text = "Hotbar"
+theme_override_font_sizes/font_size = 13
+theme_override_colors/font_color = Color(0.6, 0.6, 0.65, 0.8)
+mouse_filter = 2
+
+[node name="HotbarSection" type="HBoxContainer" parent="CenterPanel/MarginContainer/VBox"]
+layout_mode = 2
+alignment = 1
+mouse_filter = 2
+
+[node name="HotbarGrid" type="GridContainer" parent="CenterPanel/MarginContainer/VBox/HotbarSection"]
+layout_mode = 2
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
+columns = 6
+mouse_filter = 2
+
+[node name="Separator" type="HSeparator" parent="CenterPanel/MarginContainer/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="MainLabel" type="Label" parent="CenterPanel/MarginContainer/VBox"]
+layout_mode = 2
+text = "Main"
+theme_override_font_sizes/font_size = 13
+theme_override_colors/font_color = Color(0.6, 0.6, 0.65, 0.8)
+mouse_filter = 2
+
+[node name="MainSection" type="HBoxContainer" parent="CenterPanel/MarginContainer/VBox"]
+layout_mode = 2
+alignment = 1
+mouse_filter = 2
+
+[node name="MainGrid" type="GridContainer" parent="CenterPanel/MarginContainer/VBox/MainSection"]
+layout_mode = 2
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
+columns = 6
+mouse_filter = 2
+
+[node name="TooltipPanel" type="PanelContainer" parent="."]
+offset_right = 200.0
+offset_bottom = 60.0
+mouse_filter = 2
+
+[node name="TooltipMargin" type="MarginContainer" parent="TooltipPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 6
+mouse_filter = 2
+
+[node name="TooltipVBox" type="VBoxContainer" parent="TooltipPanel/TooltipMargin"]
+layout_mode = 2
+theme_override_constants/separation = 2
+mouse_filter = 2
+
+[node name="TooltipName" type="Label" parent="TooltipPanel/TooltipMargin/TooltipVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.9, 0.6, 1)
+theme_override_font_sizes/font_size = 14
+text = "Item Name"
+mouse_filter = 2
+
+[node name="TooltipDesc" type="Label" parent="TooltipPanel/TooltipMargin/TooltipVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.7, 0.75, 0.9)
+theme_override_font_sizes/font_size = 12
+text = "Item description goes here."
+autowrap_mode = 2
+mouse_filter = 2

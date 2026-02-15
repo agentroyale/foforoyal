@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/weapon_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+item_name = "Rock"
+description = "A basic rock. Slow but better than nothing."
+max_stack_size = 1
+category = 2
+weapon_type = 0
+base_damage = 10.0
+fire_rate = 0.5
+max_range = 0.0

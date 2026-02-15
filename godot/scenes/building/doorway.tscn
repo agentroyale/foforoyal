@@ -1,0 +1,51 @@
+[gd_scene load_steps=7 format=3 uid="uid://bdoorway01"]
+
+[ext_resource type="Script" path="res://scripts/building/building_piece.gd" id="1_piece"]
+[ext_resource type="Script" path="res://scripts/building/building_socket.gd" id="2_socket"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_left"]
+size = Vector3(0.75, 3, 0.1)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_right"]
+size = Vector3(0.75, 3, 0.1)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_top"]
+size = Vector3(3, 0.75, 0.1)
+
+[sub_resource type="StandardMaterial3D" id="Material_001"]
+albedo_color = Color(0.55, 0.45, 0.25, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_001"]
+size = Vector3(3, 3, 0.1)
+material = SubResource("Material_001")
+
+[node name="Doorway" type="StaticBody3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+script = ExtResource("1_piece")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxMesh_001")
+
+[node name="CollisionLeft" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.125, 0, 0)
+shape = SubResource("BoxShape3D_left")
+
+[node name="CollisionRight" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.125, 0, 0)
+shape = SubResource("BoxShape3D_right")
+
+[node name="CollisionTop" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.125, 0)
+shape = SubResource("BoxShape3D_top")
+
+[node name="SocketDoor" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.375, 0)
+script = ExtResource("2_socket")
+socket_type = 4
+allowed_pieces = [4]
+
+[node name="SocketWallTop" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+script = ExtResource("2_socket")
+socket_type = 2
+allowed_pieces = [2]

@@ -1,0 +1,53 @@
+[gd_scene load_steps=5 format=3 uid="uid://bfoundation01"]
+
+[ext_resource type="Script" path="res://scripts/building/building_piece.gd" id="1_piece"]
+[ext_resource type="Script" path="res://scripts/building/building_socket.gd" id="2_socket"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_001"]
+size = Vector3(3, 0.2, 3)
+
+[sub_resource type="StandardMaterial3D" id="Material_001"]
+albedo_color = Color(0.55, 0.45, 0.25, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_001"]
+size = Vector3(3, 0.2, 3)
+material = SubResource("Material_001")
+
+[node name="Foundation" type="StaticBody3D"]
+script = ExtResource("1_piece")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxMesh_001")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_001")
+
+[node name="SocketWallN" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, -1.5)
+script = ExtResource("2_socket")
+socket_type = 1
+allowed_pieces = [1, 3]
+
+[node name="SocketWallS" type="Marker3D" parent="."]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0.1, 1.5)
+script = ExtResource("2_socket")
+socket_type = 1
+allowed_pieces = [1, 3]
+
+[node name="SocketWallE" type="Marker3D" parent="."]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 1.5, 0.1, 0)
+script = ExtResource("2_socket")
+socket_type = 1
+allowed_pieces = [1, 3]
+
+[node name="SocketWallW" type="Marker3D" parent="."]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -1.5, 0.1, 0)
+script = ExtResource("2_socket")
+socket_type = 1
+allowed_pieces = [1, 3]
+
+[node name="SocketFloorTop" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.1, 0)
+script = ExtResource("2_socket")
+socket_type = 0
+allowed_pieces = [2]

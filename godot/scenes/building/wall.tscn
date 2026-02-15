@@ -1,0 +1,30 @@
+[gd_scene load_steps=5 format=3 uid="uid://bwall01"]
+
+[ext_resource type="Script" path="res://scripts/building/building_piece.gd" id="1_piece"]
+[ext_resource type="Script" path="res://scripts/building/building_socket.gd" id="2_socket"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_001"]
+size = Vector3(3, 3, 0.1)
+
+[sub_resource type="StandardMaterial3D" id="Material_001"]
+albedo_color = Color(0.55, 0.45, 0.25, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_001"]
+size = Vector3(3, 3, 0.1)
+material = SubResource("Material_001")
+
+[node name="Wall" type="StaticBody3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+script = ExtResource("1_piece")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxMesh_001")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_001")
+
+[node name="SocketWallTop" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+script = ExtResource("2_socket")
+socket_type = 2
+allowed_pieces = [2]

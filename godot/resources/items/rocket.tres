@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ExplosiveData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/raiding/explosive_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+item_name = "Rocket"
+description = "Launched projectile explosive. Splash damage in radius."
+max_stack_size = 3
+category = 4
+explosive_type = 2
+base_damage = 137.5
+explosion_radius = 4.0
+fuse_time = 0.0
+dud_chance = 0.0
+is_thrown = false
+projectile_speed = 30.0

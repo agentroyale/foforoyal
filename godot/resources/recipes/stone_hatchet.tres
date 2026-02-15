@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="RecipeData" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/crafting/recipe_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/items/wood.tres" id="2"]
+[ext_resource type="Resource" path="res://resources/items/stone.tres" id="3"]
+[ext_resource type="Resource" path="res://resources/items/stone_hatchet.tres" id="4"]
+
+[resource]
+script = ExtResource("1")
+recipe_name = "Stone Hatchet"
+description = "A basic hatchet for chopping trees."
+ingredient_items = [ExtResource("2"), ExtResource("3")]
+ingredient_counts = [200, 100]
+output_item = ExtResource("4")
+output_count = 1
+craft_time = 10.0
+workbench_tier = 0
+unlock_cost = 0

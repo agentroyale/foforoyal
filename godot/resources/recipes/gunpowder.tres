@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="RecipeData" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/crafting/recipe_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/items/sulfur.tres" id="2"]
+[ext_resource type="Resource" path="res://resources/items/wood.tres" id="3"]
+[ext_resource type="Resource" path="res://resources/items/gunpowder.tres" id="4"]
+
+[resource]
+script = ExtResource("1")
+recipe_name = "Gunpowder"
+description = "Explosive powder from sulfur and charcoal."
+ingredient_items = [ExtResource("2"), ExtResource("3")]
+ingredient_counts = [30, 20]
+output_item = ExtResource("4")
+output_count = 10
+craft_time = 3.0
+workbench_tier = 1
+unlock_cost = 50

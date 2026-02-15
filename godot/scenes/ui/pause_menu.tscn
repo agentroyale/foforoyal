@@ -1,0 +1,116 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/pause_menu.gd" id="1_script"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn"]
+bg_color = Color(0.15, 0.15, 0.2, 0.7)
+border_color = Color(0.35, 0.35, 0.4, 0.6)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+content_margin_left = 20.0
+content_margin_top = 8.0
+content_margin_right = 20.0
+content_margin_bottom = 8.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_hover"]
+bg_color = Color(0.2, 0.2, 0.28, 0.85)
+border_color = Color(0.5, 0.5, 0.55, 0.8)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+content_margin_left = 20.0
+content_margin_top = 8.0
+content_margin_right = 20.0
+content_margin_bottom = 8.0
+
+[node name="PauseMenu" type="CanvasLayer"]
+layer = 10
+process_mode = 3
+script = ExtResource("1_script")
+
+[node name="Overlay" type="ColorRect" parent="."]
+unique_name_in_owner = true
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.6)
+
+[node name="CenterContainer" type="CenterContainer" parent="Overlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="Overlay/CenterContainer"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Title" type="Label" parent="Overlay/CenterContainer/VBox"]
+layout_mode = 2
+text = "PAUSED"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 42
+theme_override_colors/font_color = Color(0.85, 0.85, 0.9, 1)
+
+[node name="Sep" type="HSeparator" parent="Overlay/CenterContainer/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ButtonContainer" type="VBoxContainer" parent="Overlay/CenterContainer/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+custom_minimum_size = Vector2(260, 0)
+theme_override_constants/separation = 10
+
+[node name="ResumeButton" type="Button" parent="Overlay/CenterContainer/VBox/ButtonContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(260, 46)
+theme_override_font_sizes/font_size = 18
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
+text = "Resume"
+
+[node name="SettingsButton" type="Button" parent="Overlay/CenterContainer/VBox/ButtonContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(260, 46)
+theme_override_font_sizes/font_size = 18
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
+text = "Settings"
+
+[node name="MainMenuButton" type="Button" parent="Overlay/CenterContainer/VBox/ButtonContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(260, 46)
+theme_override_font_sizes/font_size = 18
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
+text = "Main Menu"
+
+[node name="QuitButton" type="Button" parent="Overlay/CenterContainer/VBox/ButtonContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(260, 46)
+theme_override_font_sizes/font_size = 18
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
+text = "Quit"

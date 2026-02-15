@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/weapon_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+item_name = "Revolver"
+description = "A reliable pistol. Good damage, slow fire rate."
+max_stack_size = 1
+category = 2
+weapon_type = 2
+base_damage = 26.0
+fire_rate = 0.175
+reload_time = 3.5
+magazine_size = 8
+max_range = 80.0
+falloff_start = 30.0
+ammo_type = 2

@@ -1,0 +1,29 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/health_system.gd" id="1"]
+
+[sub_resource type="CapsuleShape3D" id="1"]
+height = 1.8
+radius = 0.35
+
+[sub_resource type="CapsuleMesh" id="2"]
+height = 1.8
+radius = 0.35
+
+[sub_resource type="StandardMaterial3D" id="3"]
+albedo_color = Color(0.8, 0.2, 0.2, 1)
+
+[node name="TargetDummy" type="StaticBody3D"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("1")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+mesh = SubResource("2")
+material_override = SubResource("3")
+
+[node name="HealthSystem" type="Node" parent="."]
+script = ExtResource("1")
+max_hp = 500.0

@@ -1,0 +1,60 @@
+[gd_scene load_steps=13 format=3 uid="uid://bplayer001"]
+
+[ext_resource type="Script" path="res://scripts/player/player_controller.gd" id="1_controller"]
+[ext_resource type="Script" path="res://scripts/player/player_camera.gd" id="2_camera"]
+[ext_resource type="Script" path="res://scripts/player/player_interaction.gd" id="3_interaction"]
+[ext_resource type="Script" path="res://scripts/building/building_placer.gd" id="4_placer"]
+[ext_resource type="Script" path="res://scripts/player/player_inventory.gd" id="5_inventory"]
+[ext_resource type="Script" path="res://scripts/player/player_gathering.gd" id="6_gathering"]
+[ext_resource type="Script" path="res://scripts/combat/health_system.gd" id="7_health"]
+[ext_resource type="Script" path="res://scripts/combat/weapon_controller.gd" id="8_weapon"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/adventurers/Barbarian.glb" id="9_model"]
+[ext_resource type="Script" path="res://scripts/player/player_model.gd" id="10_pmodel"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_001"]
+height = 1.8
+radius = 0.35
+
+[sub_resource type="Environment" id="Environment_001"]
+ambient_light_source = 2
+ambient_light_color = Color(0.5, 0.5, 0.5, 1)
+
+[node name="Player" type="CharacterBody3D"]
+script = ExtResource("1_controller")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_001")
+
+[node name="PlayerModel" parent="." instance=ExtResource("9_model")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+visible = false
+script = ExtResource("10_pmodel")
+
+[node name="CameraPivot" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+script = ExtResource("2_camera")
+
+[node name="Camera3D" type="Camera3D" parent="CameraPivot"]
+environment = SubResource("Environment_001")
+current = true
+fov = 75.0
+
+[node name="InteractionRay" type="RayCast3D" parent="CameraPivot"]
+target_position = Vector3(0, 0, -4)
+script = ExtResource("3_interaction")
+
+[node name="BuildingPlacer" type="Node3D" parent="."]
+script = ExtResource("4_placer")
+
+[node name="PlayerInventory" type="Node" parent="."]
+script = ExtResource("5_inventory")
+
+[node name="PlayerGathering" type="Node" parent="."]
+script = ExtResource("6_gathering")
+
+[node name="HealthSystem" type="Node" parent="."]
+script = ExtResource("7_health")
+
+[node name="WeaponController" type="Node" parent="."]
+script = ExtResource("8_weapon")

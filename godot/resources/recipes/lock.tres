@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="RecipeData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/crafting/recipe_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/items/metal_fragments.tres" id="2"]
+[ext_resource type="Resource" path="res://resources/items/lock.tres" id="3"]
+
+[resource]
+script = ExtResource("1")
+recipe_name = "Lock"
+description = "A code lock for securing doors."
+ingredient_items = [ExtResource("2")]
+ingredient_counts = [100]
+output_item = ExtResource("3")
+output_count = 1
+craft_time = 10.0
+workbench_tier = 1
+unlock_cost = 75

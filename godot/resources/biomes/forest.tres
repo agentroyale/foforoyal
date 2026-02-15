@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="BiomeData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/biome_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+biome_type = 1
+biome_name = "Forest"
+ground_color = Color(0.2, 0.35, 0.15, 1)
+tree_density = 0.6
+rock_density = 0.15
+metal_ore_density = 0.08
+sulfur_ore_density = 0.02
+temperature_range = Vector2(0.2, 0.55)
+moisture_range = Vector2(0.55, 1)

@@ -1,0 +1,23 @@
+[gd_scene load_steps=3 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material_1"]
+transparency = 1
+albedo_color = Color(1.0, 0.6, 0.1, 0.8)
+emission_enabled = true
+emission = Color(1.0, 0.4, 0.0, 1.0)
+emission_energy_multiplier = 3.0
+
+[sub_resource type="SphereMesh" id="SphereMesh_1"]
+radius = 0.5
+height = 1.0
+material = SubResource("Material_1")
+
+[node name="ExplosionVFX" type="Node3D"]
+
+[node name="Flash" type="MeshInstance3D" parent="."]
+mesh = SubResource("SphereMesh_1")
+
+[node name="Lifetime" type="Timer" parent="."]
+wait_time = 0.5
+one_shot = true
+autostart = true

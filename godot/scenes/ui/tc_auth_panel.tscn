@@ -1,0 +1,59 @@
+[gd_scene load_steps=2 format=3 uid="uid://btcpanel01"]
+
+[ext_resource type="Script" path="res://scripts/ui/tc_auth_panel.gd" id="1_panel"]
+
+[node name="TCAuthPanel" type="PanelContainer"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -180.0
+offset_right = 200.0
+offset_bottom = 180.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_panel")
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="VBox"]
+layout_mode = 2
+text = "Tool Cupboard"
+horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="VBox"]
+layout_mode = 2
+
+[node name="AuthLabel" type="Label" parent="VBox"]
+layout_mode = 2
+text = "Authorized Players:"
+
+[node name="PlayerList" type="ItemList" parent="VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 150)
+allow_reselect = true
+
+[node name="ButtonRow" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+
+[node name="AuthButton" type="Button" parent="VBox/ButtonRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Authorize"
+
+[node name="DeauthButton" type="Button" parent="VBox/ButtonRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Remove"
+
+[node name="ClearButton" type="Button" parent="VBox/ButtonRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Clear All"
+
+[node name="CloseButton" type="Button" parent="VBox"]
+layout_mode = 2
+text = "Close"

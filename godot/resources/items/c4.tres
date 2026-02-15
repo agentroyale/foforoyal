@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ExplosiveData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/raiding/explosive_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+item_name = "C4 Explosive"
+description = "Timed plastic explosive. High damage, no dud chance."
+max_stack_size = 10
+category = 4
+explosive_type = 0
+base_damage = 275.0
+explosion_radius = 4.0
+fuse_time = 10.0
+dud_chance = 0.0
+is_thrown = true
+projectile_speed = 0.0
