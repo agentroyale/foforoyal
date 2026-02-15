@@ -122,17 +122,18 @@ func _process(delta: float) -> void:
 		]
 		var has_bow := _equipped_weapon_type == WeaponData.WeaponType.BOW
 		var is_aiming := _is_player_aiming()
+		var is_crouching: bool = player is PlayerController and player.is_crouching
 
 		if not player.is_on_floor():
-			# Airborne: keep locomotion anim (legs matter), bone override handles aim
 			if has_ranged:
 				_play_anim("advanced/Running_HoldingRifle")
 			elif has_bow:
 				_play_anim("advanced/Running_HoldingBow")
 			else:
 				_play_anim("movement/Jump_Idle")
+		elif is_crouching:
+			_play_anim("advanced/Crouching")
 		elif horizontal_speed > 3.0:
-			# Running: keep locomotion anim (legs matter), bone override handles aim
 			if has_ranged:
 				_play_anim("advanced/Running_HoldingRifle")
 			elif has_bow:

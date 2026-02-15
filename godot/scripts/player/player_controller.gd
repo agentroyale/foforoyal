@@ -113,6 +113,7 @@ func _handle_crouch(delta: float) -> void:
 	var target_height := CROUCH_HEIGHT if is_crouching else STAND_HEIGHT
 	var shape: CapsuleShape3D = collision_shape.shape
 	shape.height = lerp(shape.height, target_height, CROUCH_LERP_SPEED * delta)
+	collision_shape.position.y = shape.height * 0.5
 
 	# Adjust camera pivot to follow crouch (TPS: keep at head height)
 	var target_y := 1.8 if not is_crouching else 1.1
@@ -174,4 +175,5 @@ func calculate_fall_damage(fall_speed: float) -> float:
 func _set_collision_height(height: float) -> void:
 	var shape: CapsuleShape3D = collision_shape.shape
 	shape.height = height
+	collision_shape.position.y = height * 0.5
 	camera_pivot.position.y = height * 0.5 - 0.1

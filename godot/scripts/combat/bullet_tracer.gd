@@ -1,14 +1,17 @@
 class_name BulletTracer
 extends Node3D
-## Quick tracer line from origin to hit point using a thin box mesh stretched between points.
+## Hitscan tracer line: bright core + wider glow, fades quickly.
+## Stretched between muzzle and hit point.
 
-const LIFETIME := 0.1
-const TRACER_COLOR := Color(1.0, 0.9, 0.5, 0.9)
-const TRACER_WIDTH := 0.02
+const LIFETIME := 0.08
+const CORE_WIDTH := 0.012
+const GLOW_WIDTH := 0.05
+const CORE_COLOR := Color(1.0, 0.97, 0.85, 1.0)
+const GLOW_COLOR := Color(1.0, 0.75, 0.3, 0.35)
 
 var _timer := LIFETIME
-var _mesh: MeshInstance3D
-
+var _core_mesh: MeshInstance3D
+var _glow_mesh: MeshInstance3D
 
 ## Store target coords to apply when in tree (global_position fails outside tree).
 var _from: Vector3
@@ -26,23 +29,43 @@ static func create(from: Vector3, to: Vector3) -> BulletTracer:
 	tracer._to = to
 	tracer._pending_transform = true
 
-	var box := BoxMesh.new()
-	box.size = Vector3(TRACER_WIDTH, TRACER_WIDTH, dist)
+	# ── Core (thin, bright white-yellow) ──
+	var core_box := BoxMesh.new()
+	core_box.size = Vector3(CORE_WIDTH, CORE_WIDTH, dist)
 
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = TRACER_COLOR
-	mat.emission_enabled = true
-	mat.emission = TRACER_COLOR
-	mat.emission_energy_multiplier = 5.0
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.no_depth_test = true
-	box.material = mat
+	var core_mat := StandardMaterial3D.new()
+	core_mat.albedo_color = CORE_COLOR
+	core_mat.emission_enabled = true
+	core_mat.emission = Color(1.0, 0.95, 0.75)
+	core_mat.emission_energy_multiplier = 12.0
+	core_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	core_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	core_mat.no_depth_test = true
+	core_box.material = core_mat
 
-	var mesh_inst := MeshInstance3D.new()
-	mesh_inst.mesh = box
-	tracer.add_child(mesh_inst)
-	tracer._mesh = mesh_inst
+	tracer._core_mesh = MeshInstance3D.new()
+	tracer._core_mesh.mesh = core_box
+	tracer._core_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	tracer.add_child(tracer._core_mesh)
+
+	# ── Glow (wider, softer, semi-transparent orange) ──
+	var glow_box := BoxMesh.new()
+	glow_box.size = Vector3(GLOW_WIDTH, GLOW_WIDTH, dist)
+
+	var glow_mat := StandardMaterial3D.new()
+	glow_mat.albedo_color = GLOW_COLOR
+	glow_mat.emission_enabled = true
+	glow_mat.emission = Color(1.0, 0.65, 0.2)
+	glow_mat.emission_energy_multiplier = 4.0
+	glow_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	glow_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	glow_mat.no_depth_test = true
+	glow_box.material = glow_mat
+
+	tracer._glow_mesh = MeshInstance3D.new()
+	tracer._glow_mesh.mesh = glow_box
+	tracer._glow_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	tracer.add_child(tracer._glow_mesh)
 
 	return tracer
 
@@ -58,8 +81,15 @@ func _process(delta: float) -> void:
 	if _timer <= 0.0:
 		queue_free()
 		return
+
 	var alpha := _timer / LIFETIME
-	if _mesh and _mesh.mesh:
-		var mat := _mesh.mesh.material as StandardMaterial3D
+	# Core fades
+	if _core_mesh and _core_mesh.mesh:
+		var mat := _core_mesh.mesh.material as StandardMaterial3D
 		if mat:
 			mat.albedo_color.a = alpha
+	# Glow fades faster
+	if _glow_mesh and _glow_mesh.mesh:
+		var mat := _glow_mesh.mesh.material as StandardMaterial3D
+		if mat:
+			mat.albedo_color.a = GLOW_COLOR.a * alpha * alpha

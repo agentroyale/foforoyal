@@ -124,14 +124,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if try_place():
 			get_viewport().set_input_as_handled()
 
-	# Scroll to cycle building pieces in build mode
-	if event is InputEventMouseButton and event.pressed:
-		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			_cycle_piece(1)
-			get_viewport().set_input_as_handled()
-		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			_cycle_piece(-1)
-			get_viewport().set_input_as_handled()
+	# Scroll cycling removed — handled by BuildSelectorUI
 
 
 func _process(_delta: float) -> void:
@@ -153,6 +146,21 @@ func toggle_build_mode() -> void:
 		_hide_ghost()
 		if _grid_mesh:
 			_grid_mesh.visible = false
+
+
+func get_pieces() -> Array[BuildingPieceData]:
+	return _pieces
+
+
+func get_current_piece_index() -> int:
+	return _current_piece_index
+
+
+func select_piece_by_index(idx: int) -> void:
+	if _pieces.is_empty() or idx < 0 or idx >= _pieces.size():
+		return
+	_current_piece_index = idx
+	set_piece_data(_pieces[_current_piece_index])
 
 
 func set_piece_data(data: BuildingPieceData) -> void:
@@ -280,6 +288,7 @@ func _validate_placement() -> void:
 	var is_foundation := current_piece_data.piece_type in [
 		BuildingPieceData.PieceType.FOUNDATION,
 		BuildingPieceData.PieceType.TRIANGLE_FOUNDATION,
+		BuildingPieceData.PieceType.TOOL_CUPBOARD,
 	]
 	var needs_socket := not is_foundation
 	var has_valid_socket := snapped_socket != null

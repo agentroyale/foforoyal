@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3 uid="uid://bplayer001"]
+[gd_scene load_steps=17 format=3 uid="uid://bplayer001"]
 
 [ext_resource type="Script" path="res://scripts/player/player_controller.gd" id="1_controller"]
 [ext_resource type="Script" path="res://scripts/player/player_camera.gd" id="2_camera"]
@@ -13,6 +13,7 @@
 [ext_resource type="Script" path="res://scripts/debug/weapon_adjust.gd" id="11_wadjust"]
 [ext_resource type="Script" path="res://scripts/crafting/crafting_queue.gd" id="12_craftqueue"]
 [ext_resource type="Script" path="res://scripts/player/stamina_system.gd" id="13_stamina"]
+[ext_resource type="Script" path="res://scripts/networking/network_sync.gd" id="14_netsync"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_001"]
 height = 1.8
@@ -72,3 +73,6 @@ script = ExtResource("12_craftqueue")
 
 [node name="StaminaSystem" type="Node" parent="."]
 script = ExtResource("13_stamina")
+
+[node name="NetworkSync" type="Node" parent="."]
+script = ExtResource("14_netsync")

@@ -1,12 +1,14 @@
-[gd_resource type="Resource" script_class="BuildingPieceData" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="BuildingPieceData" load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/building/building_piece_data.gd" id="1"]
 [ext_resource type="PackedScene" uid="uid://btc01" path="res://scenes/building/tool_cupboard.tscn" id="2"]
+[ext_resource type="Texture2D" path="res://assets/textures/icons/tool_cupboard.png" id="3"]
 
 [resource]
 script = ExtResource("1")
+icon = ExtResource("3")
 piece_name = "Tool Cupboard"
-piece_type = 0
+piece_type = 17
 piece_scene = ExtResource("2")
 build_costs = [20, 100, 200, 400, 800]
 upgrade_costs = [80, 100, 200, 400, 0]

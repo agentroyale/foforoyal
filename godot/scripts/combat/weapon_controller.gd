@@ -77,8 +77,22 @@ func _fire(weapon: WeaponData) -> void:
 	_time_since_last_shot = 0.0
 
 	_emit_muzzle_flash()
+	_spawn_shell(weapon)
 	weapon_fired.emit(weapon)
 
+	match weapon.weapon_type:
+		WeaponData.WeaponType.SMG:
+			WeaponSfx.play_auto()
+		WeaponData.WeaponType.PISTOL:
+			WeaponSfx.play_gunshot()
+
+	if _is_multiplayer_active():
+		_fire_networked(weapon)
+	else:
+		_fire_local(weapon)
+
+
+func _fire_local(weapon: WeaponData) -> void:
 	match weapon.weapon_type:
 		WeaponData.WeaponType.MELEE:
 			_do_melee(weapon)
@@ -86,6 +100,39 @@ func _fire(weapon: WeaponData) -> void:
 			_spawn_projectile(weapon)
 		WeaponData.WeaponType.PISTOL, WeaponData.WeaponType.SMG:
 			_do_hitscan(weapon)
+
+
+func _fire_networked(weapon: WeaponData) -> void:
+	var camera := get_parent().get_node_or_null("CameraPivot/Camera3D") as Camera3D
+	if not camera:
+		return
+	var cam_origin := camera.global_position
+	var cam_dir := -camera.global_basis.z
+	var timestamp := Time.get_ticks_msec() / 1000.0
+
+	# Local VFX (tracer/shell happen immediately for responsiveness)
+	match weapon.weapon_type:
+		WeaponData.WeaponType.PISTOL, WeaponData.WeaponType.SMG:
+			var dir := SpreadSystem.apply_spread_to_direction(cam_dir, _pending_shot_spread)
+			var end := cam_origin + dir * weapon.max_range
+			_spawn_tracer(_get_muzzle_position(), end)
+		WeaponData.WeaponType.BOW:
+			_spawn_projectile(weapon)
+
+	# Send to server for authoritative hit detection
+	var cn := Engine.get_singleton("CombatNetcode") if Engine.has_singleton("CombatNetcode") else get_node_or_null("/root/CombatNetcode")
+	if cn:
+		cn.request_fire.rpc_id(1, cam_origin, cam_dir,
+			weapon.weapon_type, _pending_shot_spread, timestamp)
+
+
+func _is_multiplayer_active() -> bool:
+	if not multiplayer.has_multiplayer_peer():
+		return false
+	if multiplayer.multiplayer_peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
+		return false
+	# In a real multiplayer session there are 2+ peers; solo/test = only peer 1
+	return NetworkManager.get_peer_count() > 1
 
 
 func _do_hitscan(weapon: WeaponData) -> void:
@@ -111,6 +158,10 @@ func _do_hitscan(weapon: WeaponData) -> void:
 	var muzzle_pos := _get_muzzle_position()
 	var end_point: Vector3 = hit["position"] if not hit.is_empty() else origin + dir * weapon.max_range
 	_spawn_tracer(muzzle_pos, end_point)
+
+	# Spawn impact sparks at hit point
+	if not hit.is_empty():
+		_spawn_impact(hit["position"], hit["normal"])
 
 	if hit.is_empty():
 		return
@@ -301,6 +352,11 @@ func try_reload() -> bool:
 		return false
 	_is_reloading = true
 	_reload_timer = weapon.reload_time
+	WeaponSfx.play_reload()
+	if _is_multiplayer_active():
+		var cn := get_node_or_null("/root/CombatNetcode")
+		if cn:
+			cn.request_reload.rpc_id(1)
 	return true
 
 
@@ -333,6 +389,8 @@ func equip_weapon(weapon: WeaponData) -> void:
 	_can_fire = true
 	_current_ammo = weapon.magazine_size if weapon.magazine_size > 0 else 0
 	ammo_changed.emit(_current_ammo, weapon.magazine_size)
+
+	WeaponSfx.play_equip()
 
 	var model := get_parent().get_node_or_null("PlayerModel") as PlayerModel
 	if model:
@@ -377,6 +435,35 @@ func _emit_muzzle_flash() -> void:
 	var pos := _get_muzzle_position()
 	muzzle_flash_requested.emit(pos)
 
+	# Spawn muzzle flash VFX
+	var camera := get_parent().get_node_or_null("CameraPivot/Camera3D") as Camera3D
+	var dir: Vector3 = -camera.global_basis.z if camera else Vector3.FORWARD
+	var flash := MuzzleFlash.create(pos, dir)
+	if get_tree() and get_tree().current_scene:
+		get_tree().current_scene.add_child(flash)
+
 	var camera_pivot := _get_camera_pivot()
 	if camera_pivot and camera_pivot is PlayerCamera:
 		camera_pivot.apply_shake(0.03)
+
+
+func _spawn_shell(weapon: WeaponData) -> void:
+	if weapon.weapon_type == WeaponData.WeaponType.MELEE or weapon.weapon_type == WeaponData.WeaponType.BOW:
+		return
+	var pos := _get_muzzle_position()
+	var camera := get_parent().get_node_or_null("CameraPivot/Camera3D") as Camera3D
+	if not camera:
+		return
+	var right := camera.global_basis.x
+	var up := Vector3.UP
+	var shell := ShellEject.create(pos, right, up)
+	if get_tree() and get_tree().current_scene:
+		get_tree().current_scene.add_child(shell)
+	WeaponSfx.play_shell_drop()
+
+
+func _spawn_impact(hit_pos: Vector3, hit_normal: Vector3) -> void:
+	var impact := ImpactEffect.create(hit_pos, hit_normal)
+	if get_tree() and get_tree().current_scene:
+		get_tree().current_scene.add_child(impact)
+	WeaponSfx.play_ricochet()

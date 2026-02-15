@@ -1,10 +1,12 @@
-[gd_scene load_steps=6 format=3 uid="uid://bhud001"]
+[gd_scene load_steps=8 format=3 uid="uid://bhud001"]
 
 [ext_resource type="Script" path="res://scripts/ui/hud.gd" id="1_hud"]
 [ext_resource type="Script" path="res://scripts/ui/crosshair.gd" id="2_crosshair"]
 [ext_resource type="PackedScene" path="res://scenes/combat/health_bar.tscn" id="3_healthbar"]
 [ext_resource type="PackedScene" path="res://scenes/ui/minimap.tscn" id="4_minimap"]
 [ext_resource type="PackedScene" path="res://scenes/combat/stamina_bar.tscn" id="5_staminabar"]
+[ext_resource type="PackedScene" path="res://scenes/ui/build_selector.tscn" id="6_buildselector"]
+[ext_resource type="Script" path="res://scripts/ui/kill_feed.gd" id="7_killfeed"]
 
 [node name="HUD" type="CanvasLayer"]
 script = ExtResource("1_hud")
@@ -229,22 +231,19 @@ text = ""
 horizontal_alignment = 1
 mouse_filter = 2
 
-[node name="BuildLabel" type="Label" parent="."]
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
-offset_left = -250.0
-offset_top = -30.0
-offset_right = 250.0
-offset_bottom = -10.0
-grow_horizontal = 2
-grow_vertical = 0
-visible = false
-text = "[BUILD] Foundation  |  Scroll: cycle  |  RMB: rotate  |  LMB: place"
-horizontal_alignment = 1
+[node name="BuildSelector" parent="." instance=ExtResource("6_buildselector")]
+
+[node name="KillFeed" type="VBoxContainer" parent="."]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -320.0
+offset_top = 40.0
+offset_right = -10.0
+offset_bottom = 240.0
+grow_horizontal = 0
 mouse_filter = 2
+script = ExtResource("7_killfeed")
 
 [node name="StabilityLabel" type="Label" parent="."]
 anchors_preset = 7

@@ -20,8 +20,10 @@ enum PieceType {
 	CEILING,             # 14
 	FLOOR_WOOD,          # 15
 	PILLAR,              # 16
+	TOOL_CUPBOARD,       # 17
 }
 
+@export var icon: Texture2D
 @export var piece_name: String = ""
 @export var piece_type: PieceType = PieceType.FOUNDATION
 @export var piece_scene: PackedScene
@@ -39,3 +41,17 @@ func get_build_cost(tier: BuildingTier.Tier) -> int:
 
 func get_upgrade_cost(tier: BuildingTier.Tier) -> int:
 	return upgrade_costs[tier]
+
+
+static func get_category(type: PieceType) -> int:
+	match type:
+		PieceType.FOUNDATION, PieceType.TRIANGLE_FOUNDATION, PieceType.PILLAR:
+			return 0
+		PieceType.WALL, PieceType.DOORWAY, PieceType.DOOR, PieceType.WINDOW_FRAME, \
+		PieceType.HALF_WALL, PieceType.WALL_ARCHED, PieceType.WALL_GATED, \
+		PieceType.WALL_WINDOW_ARCHED, PieceType.WALL_WINDOW_CLOSED:
+			return 1
+		PieceType.FLOOR, PieceType.FLOOR_WOOD, PieceType.CEILING, PieceType.STAIRS:
+			return 2
+		PieceType.ROOF, PieceType.TOOL_CUPBOARD, _:
+			return 3

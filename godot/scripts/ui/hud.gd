@@ -4,7 +4,7 @@ extends CanvasLayer
 
 @onready var fps_label: Label = $FPSLabel
 @onready var interaction_label: Label = $InteractionLabel
-@onready var build_label: Label = $BuildLabel
+@onready var build_selector: BuildSelectorUI = $BuildSelector
 @onready var hotbar_container: HBoxContainer = $HotbarContainer
 @onready var stability_label: Label = $StabilityLabel
 @onready var crosshair: CrosshairUI = $CrosshairUI
@@ -139,12 +139,18 @@ func _setup_death_screen() -> void:
 
 func _connect_build_signals() -> void:
 	var players := get_tree().get_nodes_in_group("players")
-	for player in players:
-		var placer := player.get_node_or_null("BuildingPlacer") as BuildingPlacer
-		if placer:
-			placer.build_mode_changed.connect(_on_build_mode_changed)
-			placer.piece_changed.connect(_on_piece_changed)
-			return
+	var player: Node = null
+	if not players.is_empty():
+		player = players[0]
+	else:
+		player = get_parent().get_node_or_null("Player")
+	if not player:
+		return
+	var placer := player.get_node_or_null("BuildingPlacer") as BuildingPlacer
+	if placer:
+		placer.build_mode_changed.connect(_on_build_mode_changed)
+		if build_selector:
+			build_selector.setup(placer)
 
 
 const STABILITY_RAY_DISTANCE := 10.0
@@ -225,19 +231,20 @@ func hide_interaction_prompt() -> void:
 
 
 func _on_build_mode_changed(active: bool) -> void:
-	if not build_label:
-		return
 	if active:
-		build_label.visible = true
+		if hotbar_container:
+			hotbar_container.visible = false
+		if weapon_panel:
+			weapon_panel.visible = false
+		if build_selector:
+			build_selector.visible = true
+			build_selector.queue_redraw()
 	else:
-		build_label.visible = false
-
-
-func _on_piece_changed(piece_data: BuildingPieceData) -> void:
-	if not build_label:
-		return
-	if piece_data:
-		build_label.text = "[BUILD] %s  |  Scroll: cycle  |  RMB: rotate  |  LMB: place" % piece_data.piece_name
+		if hotbar_container:
+			hotbar_container.visible = true
+		if build_selector:
+			build_selector.visible = false
+		_update_weapon_display()
 
 
 func _refresh_hotbar() -> void:
