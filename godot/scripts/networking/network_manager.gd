@@ -73,11 +73,25 @@ func get_peer_count() -> int:
 
 func _ready() -> void:
 	if "--server" in OS.get_cmdline_args():
-		var err := host_server()
+		var port := _parse_arg_int("--port", DEFAULT_PORT)
+		var err := host_server(port)
 		if err == OK:
-			print("[NetworkManager] Headless server started on port %d" % DEFAULT_PORT)
+			print("[NetworkManager] Headless server started on port %d" % port)
+			call_deferred("_load_server_scene")
 		else:
 			push_error("[NetworkManager] Failed to start headless server: %s" % error_string(err))
+
+
+func _load_server_scene() -> void:
+	print("[NetworkManager] Loading game world...")
+	get_tree().change_scene_to_file("res://scenes/world/game_world.tscn")
+
+
+func _parse_arg_int(prefix: String, default_val: int) -> int:
+	for arg in OS.get_cmdline_args():
+		if arg.begins_with(prefix + "="):
+			return int(arg.split("=")[1])
+	return default_val
 
 
 func _connect_signals() -> void:

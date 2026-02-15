@@ -1,0 +1,17 @@
+[Unit]
+Description=NovoJogo Dedicated Server
+After=network.target
+
+[Service]
+Type=simple
+User=novojogo
+Group=novojogo
+WorkingDirectory=/opt/novojogo/godot
+ExecStart=/usr/local/bin/godot-4 --headless --path /opt/novojogo/godot -- --server --port=27015
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/novojogo/server.log
+StandardError=append:/var/log/novojogo/server.log
+
+[Install]
+WantedBy=multi-user.target
