@@ -4,7 +4,7 @@ extends Area3D
 
 var direction: Vector3 = Vector3.FORWARD
 var speed: float = 40.0
-var gravity: float = 9.8
+var projectile_gravity: float = 9.8
 var damage: float = 10.0
 var damage_type: int = HealthSystem.DamageType.BULLET
 var max_lifetime: float = 5.0
@@ -19,7 +19,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	_velocity.y -= gravity * delta
+	_velocity.y -= projectile_gravity * delta
 	position += _velocity * delta
 	_lifetime += delta
 

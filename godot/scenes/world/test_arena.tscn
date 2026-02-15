@@ -1,5 +1,6 @@
-[gd_scene load_steps=18 format=3 uid="uid://barena001"]
+[gd_scene load_steps=19 format=3 uid="uid://barena001"]
 
+[ext_resource type="Script" path="res://scripts/world/test_arena.gd" id="0_script"]
 [ext_resource type="PackedScene" uid="uid://bplayer001" path="res://scenes/player/player.tscn" id="1_player"]
 [ext_resource type="PackedScene" uid="uid://bhud001" path="res://scenes/ui/hud.tscn" id="2_hud"]
 [ext_resource type="PackedScene" path="res://scenes/crafting/workbench_t1.tscn" id="7_wb"]
@@ -45,6 +46,7 @@ size = Vector3(2, 2, 2)
 material = SubResource("Material_box")
 
 [node name="TestArena" type="Node3D"]
+script = ExtResource("0_script")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_001")

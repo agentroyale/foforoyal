@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3 uid="uid://bplayer001"]
+[gd_scene load_steps=16 format=3 uid="uid://bplayer001"]
 
 [ext_resource type="Script" path="res://scripts/player/player_controller.gd" id="1_controller"]
 [ext_resource type="Script" path="res://scripts/player/player_camera.gd" id="2_camera"]
@@ -10,6 +10,9 @@
 [ext_resource type="Script" path="res://scripts/combat/weapon_controller.gd" id="8_weapon"]
 [ext_resource type="PackedScene" path="res://assets/kaykit/adventurers/Barbarian.glb" id="9_model"]
 [ext_resource type="Script" path="res://scripts/player/player_model.gd" id="10_pmodel"]
+[ext_resource type="Script" path="res://scripts/debug/weapon_adjust.gd" id="11_wadjust"]
+[ext_resource type="Script" path="res://scripts/crafting/crafting_queue.gd" id="12_craftqueue"]
+[ext_resource type="Script" path="res://scripts/player/stamina_system.gd" id="13_stamina"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_001"]
 height = 1.8
@@ -20,6 +23,8 @@ ambient_light_source = 2
 ambient_light_color = Color(0.5, 0.5, 0.5, 1)
 
 [node name="Player" type="CharacterBody3D"]
+floor_max_angle = 0.87
+floor_snap_length = 0.5
 script = ExtResource("1_controller")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
@@ -28,11 +33,11 @@ shape = SubResource("CapsuleShape3D_001")
 
 [node name="PlayerModel" parent="." instance=ExtResource("9_model")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
-visible = false
+visible = true
 script = ExtResource("10_pmodel")
 
 [node name="CameraPivot" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4, 0)
 script = ExtResource("2_camera")
 
 [node name="Camera3D" type="Camera3D" parent="CameraPivot"]
@@ -58,3 +63,12 @@ script = ExtResource("7_health")
 
 [node name="WeaponController" type="Node" parent="."]
 script = ExtResource("8_weapon")
+
+[node name="WeaponAdjust" type="Node" parent="."]
+script = ExtResource("11_wadjust")
+
+[node name="CraftingQueue" type="Node" parent="."]
+script = ExtResource("12_craftqueue")
+
+[node name="StaminaSystem" type="Node" parent="."]
+script = ExtResource("13_stamina")

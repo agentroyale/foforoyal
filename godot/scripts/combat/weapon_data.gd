@@ -16,3 +16,15 @@ enum AmmoType { NONE = 0, ARROW = 1, PISTOL_AMMO = 2, RIFLE_AMMO = 3 }
 @export var recoil_pattern: RecoilPattern
 @export var projectile_speed: float = 0.0
 @export var projectile_gravity: float = 0.0
+@export_group("Weapon Model")
+@export var weapon_mesh_scene: PackedScene
+@export var model_position_offset: Vector3 = Vector3.ZERO
+@export var model_rotation_offset: Vector3 = Vector3.ZERO  ## degrees
+@export var model_scale: float = 0.4
+@export var muzzle_offset: Vector3 = Vector3(0, 0.04, -0.33)
+@export_group("Spread/Bloom")
+@export var base_spread: float = 0.5
+@export var min_spread: float = 0.1
+@export var bloom_per_shot: float = 0.8
+@export var max_bloom: float = 5.0
+@export var bloom_decay_rate: float = 8.0

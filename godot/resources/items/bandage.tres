@@ -1,9 +1,12 @@
-[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="ItemData" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/items/item_data.gd" id="1"]
 
+[ext_resource type="Texture2D" path="res://assets/textures/icons/bandage.png" id="icon_1"]
+
 [resource]
 script = ExtResource("1")
+icon = ExtResource("icon_1")
 item_name = "Bandage"
 description = "Heals a small amount of health over time."
 max_stack_size = 10

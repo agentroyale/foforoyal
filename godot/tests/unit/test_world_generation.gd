@@ -104,12 +104,12 @@ func test_chunk_coordinate_mapping() -> void:
 		"Position 256 should be chunk (1,0)")
 
 	# Far corner
-	assert_eq(cm._get_chunk_coord(Vector3(4000, 0, 4000)), Vector2i(15, 15),
-		"Far corner should be chunk (15,15)")
+	assert_eq(cm._get_chunk_coord(Vector3(900, 0, 900)), Vector2i(3, 3),
+		"Far corner should be chunk (3,3)")
 
 	# Clamp to valid range
-	assert_eq(cm._get_chunk_coord(Vector3(5000, 0, 5000)), Vector2i(15, 15),
-		"Beyond map should clamp to (15,15)")
+	assert_eq(cm._get_chunk_coord(Vector3(5000, 0, 5000)), Vector2i(3, 3),
+		"Beyond map should clamp to (3,3)")
 
 	# Negative coordinates clamp to 0
 	assert_eq(cm._get_chunk_coord(Vector3(-100, 0, -100)), Vector2i(0, 0),

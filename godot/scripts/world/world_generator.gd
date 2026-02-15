@@ -4,9 +4,9 @@ extends Node
 
 signal world_initialized(seed_value: int)
 
-const MAP_SIZE := 4096
+const MAP_SIZE := 1024
 const CHUNK_SIZE := 256
-const GRID_SIZE := 16  # MAP_SIZE / CHUNK_SIZE
+const GRID_SIZE := 4  # MAP_SIZE / CHUNK_SIZE
 
 var world_seed: int = 0
 var is_initialized: bool = false
@@ -99,7 +99,7 @@ func _setup_noise() -> void:
 	_noise_height.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 	_noise_height.fractal_type = FastNoiseLite.FRACTAL_FBM
 	_noise_height.fractal_octaves = 5
-	_noise_height.frequency = 0.001
+	_noise_height.frequency = 0.004
 
 	# Temperature noise — latitude-like variation
 	_noise_temperature = FastNoiseLite.new()
@@ -107,7 +107,7 @@ func _setup_noise() -> void:
 	_noise_temperature.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 	_noise_temperature.fractal_type = FastNoiseLite.FRACTAL_FBM
 	_noise_temperature.fractal_octaves = 3
-	_noise_temperature.frequency = 0.0005
+	_noise_temperature.frequency = 0.002
 
 	# Moisture noise — rainfall variation
 	_noise_moisture = FastNoiseLite.new()
@@ -115,7 +115,7 @@ func _setup_noise() -> void:
 	_noise_moisture.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 	_noise_moisture.fractal_type = FastNoiseLite.FRACTAL_FBM
 	_noise_moisture.fractal_octaves = 4
-	_noise_moisture.frequency = 0.0008
+	_noise_moisture.frequency = 0.0032
 
 	# Water noise — river paths
 	_noise_water = FastNoiseLite.new()

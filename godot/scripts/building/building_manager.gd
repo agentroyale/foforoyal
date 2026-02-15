@@ -5,7 +5,7 @@ extends Node
 signal piece_placed(piece: BuildingPiece)
 signal piece_removed(piece: BuildingPiece)
 
-const SOCKET_SNAP_DISTANCE := 1.5
+const SOCKET_SNAP_DISTANCE := 5.0
 const OVERLAP_CHECK_RADIUS := 0.3
 
 var placed_pieces: Array[BuildingPiece] = []
@@ -14,11 +14,15 @@ var placed_pieces: Array[BuildingPiece] = []
 func register_piece(piece: BuildingPiece) -> void:
 	placed_pieces.append(piece)
 	piece.piece_destroyed.connect(_on_piece_destroyed)
+	BuildingStability.calculate_stability(piece)
 	piece_placed.emit(piece)
 
 
 func _on_piece_destroyed(piece: BuildingPiece) -> void:
 	placed_pieces.erase(piece)
+	var sfx := get_node_or_null("/root/SFXGenerator")
+	if sfx:
+		sfx.play_destroy(piece.current_tier, piece.global_position)
 	piece_removed.emit(piece)
 
 
@@ -81,6 +85,13 @@ func request_place_piece(piece_data_path: String, pos: Vector3, rot: Vector3, pl
 	instance.global_position = pos
 	instance.global_rotation = rot
 	get_tree().current_scene.add_child(instance)
+
+	# Find and set support socket for stability
+	var best_socket := find_best_socket(pos, piece_data.piece_type)
+	if best_socket:
+		best_socket.occupy(instance)
+		instance.support_parent_socket = best_socket
+
 	register_piece(instance)
 
 

@@ -1,0 +1,43 @@
+[gd_scene load_steps=6 format=3 uid="uid://bstairs01"]
+
+[ext_resource type="Script" path="res://scripts/building/building_piece.gd" id="1_piece"]
+[ext_resource type="Script" path="res://scripts/building/building_socket.gd" id="2_socket"]
+[ext_resource type="PackedScene" path="res://assets/kaykit_dungeon/stairs_wood.gltf" id="3_mesh"]
+
+[sub_resource type="BoxShape3D" id="ramp"]
+size = Vector3(3, 0.1, 4.243)
+
+[sub_resource type="BoxShape3D" id="landing"]
+size = Vector3(3, 0.1, 1.5)
+
+[node name="Stairs" type="StaticBody3D"]
+script = ExtResource("1_piece")
+
+[node name="Model" parent="." instance=ExtResource("3_mesh")]
+transform = Transform3D(-0.909, 0, 0, 0, 0.741, 0, 0, 0, -0.5, 0, 0, 3.0)
+
+[node name="Ramp" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.70711, 0.70711, 0, -0.70711, 0.70711, 0, 1.5, 1.5)
+shape = SubResource("ramp")
+
+[node name="Landing" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.0, 0.75)
+shape = SubResource("landing")
+
+[node name="SocketWallBase" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3.0)
+script = ExtResource("2_socket")
+socket_type = 1
+allowed_pieces = [0, 5]
+
+[node name="SocketStairsBottom" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3.0)
+script = ExtResource("2_socket")
+socket_type = 6
+allowed_pieces = [2, 14, 15]
+
+[node name="SocketStairsTop" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.0, 1.5)
+script = ExtResource("2_socket")
+socket_type = 7
+allowed_pieces = [2, 14, 15]

@@ -15,7 +15,7 @@ func _ready() -> void:
 
 
 func _physics_process(_delta: float) -> void:
-	if not get_parent().get_parent().is_multiplayer_authority():
+	if multiplayer.has_multiplayer_peer() and not get_parent().get_parent().is_multiplayer_authority():
 		return
 	_update_target()
 

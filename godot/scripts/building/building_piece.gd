@@ -5,12 +5,15 @@ extends StaticBody3D
 
 signal piece_destroyed(piece: BuildingPiece)
 signal piece_upgraded(piece: BuildingPiece, new_tier: BuildingTier.Tier)
+signal stability_changed(piece: BuildingPiece, new_stability: float)
 
 @export var piece_data: BuildingPieceData
 
 var current_tier: BuildingTier.Tier = BuildingTier.Tier.TWIG
 var current_hp: float = 10.0
 var max_hp: float = 10.0
+var stability: float = 1.0
+var support_parent_socket: BuildingSocket = null
 
 const SOFT_SIDE_MULTIPLIER := 2.0
 const HARD_SIDE_MULTIPLIER := 1.0
@@ -30,15 +33,6 @@ func _apply_tier(tier: BuildingTier.Tier) -> void:
 	current_tier = tier
 	max_hp = BuildingTier.get_max_hp(tier)
 	current_hp = max_hp
-	_update_visual(tier)
-
-
-func _update_visual(tier: BuildingTier.Tier) -> void:
-	var mesh := get_node_or_null("MeshInstance3D") as MeshInstance3D
-	if mesh:
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color = BuildingTier.get_color(tier)
-		mesh.material_override = mat
 
 
 func get_damage_multiplier(hit_direction: Vector3) -> float:
@@ -64,15 +58,38 @@ func upgrade() -> bool:
 	var new_tier := BuildingTier.get_next_tier(current_tier)
 	_apply_tier(new_tier)
 	piece_upgraded.emit(self, new_tier)
+	if Engine.has_singleton("SFXGenerator") or get_node_or_null("/root/SFXGenerator"):
+		var sfx := get_node_or_null("/root/SFXGenerator")
+		if sfx:
+			sfx.play_upgrade(new_tier, global_position)
 	return true
 
 
 func _destroy() -> void:
+	var children := get_supported_children()
 	piece_destroyed.emit(self)
 	for child in get_children():
 		if child is BuildingSocket:
 			child.vacate()
 	queue_free()
+	BuildingStability.on_piece_destroyed(children)
+
+
+func get_support_parent() -> BuildingPiece:
+	if support_parent_socket and is_instance_valid(support_parent_socket):
+		var owner_piece := support_parent_socket.get_parent()
+		if owner_piece is BuildingPiece:
+			return owner_piece as BuildingPiece
+	return null
+
+
+func get_supported_children() -> Array[BuildingPiece]:
+	var children: Array[BuildingPiece] = []
+	for child in get_children():
+		if child is BuildingSocket and child.is_occupied and is_instance_valid(child.occupying_piece):
+			if child.occupying_piece is BuildingPiece:
+				children.append(child.occupying_piece as BuildingPiece)
+	return children
 
 
 func get_sockets() -> Array[BuildingSocket]:

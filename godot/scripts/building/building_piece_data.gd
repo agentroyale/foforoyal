@@ -3,11 +3,23 @@ extends Resource
 ## Data resource for a building piece type (foundation, wall, etc.).
 
 enum PieceType {
-	FOUNDATION,
-	WALL,
-	FLOOR,
-	DOORWAY,
-	DOOR,
+	FOUNDATION,          # 0
+	WALL,                # 1
+	FLOOR,               # 2
+	DOORWAY,             # 3
+	DOOR,                # 4
+	TRIANGLE_FOUNDATION, # 5
+	STAIRS,              # 6
+	ROOF,                # 7
+	WINDOW_FRAME,        # 8
+	HALF_WALL,           # 9
+	WALL_ARCHED,         # 10
+	WALL_GATED,          # 11
+	WALL_WINDOW_ARCHED,  # 12
+	WALL_WINDOW_CLOSED,  # 13
+	CEILING,             # 14
+	FLOOR_WOOD,          # 15
+	PILLAR,              # 16
 }
 
 @export var piece_name: String = ""

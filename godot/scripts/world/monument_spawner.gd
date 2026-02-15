@@ -10,9 +10,9 @@ enum MonumentType {
 	POWER_PLANT = 3,
 }
 
-const MONUMENT_COUNT := 8
-const MIN_DISTANCE_BETWEEN_MONUMENTS := 512.0
-const MAP_MARGIN := 256.0  # Keep away from map edges
+const MONUMENT_COUNT := 4
+const MIN_DISTANCE_BETWEEN_MONUMENTS := 200.0
+const MAP_MARGIN := 128.0  # Keep away from map edges
 const MAX_ATTEMPTS := 200
 
 const MONUMENT_NAMES := {

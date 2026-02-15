@@ -1,0 +1,45 @@
+[gd_scene load_steps=7 format=3 uid="uid://bwallwinarc01"]
+
+[ext_resource type="Script" path="res://scripts/building/building_piece.gd" id="1_piece"]
+[ext_resource type="Script" path="res://scripts/building/building_socket.gd" id="2_socket"]
+[ext_resource type="PackedScene" path="res://assets/kaykit_dungeon/wall_archedwindow_open.gltf" id="3_mesh"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_left"]
+size = Vector3(0.75, 3, 0.75)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_right"]
+size = Vector3(0.75, 3, 0.75)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_top"]
+size = Vector3(3, 0.75, 0.75)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_bottom"]
+size = Vector3(3, 1.0, 0.75)
+
+[node name="WallWindowArched" type="StaticBody3D"]
+script = ExtResource("1_piece")
+
+[node name="Model" parent="." instance=ExtResource("3_mesh")]
+transform = Transform3D(0.75, 0, 0, 0, 0.75, 0, 0, 0, 0.75, 0, 0, 0)
+
+[node name="CollisionLeft" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.125, 1.5, 0)
+shape = SubResource("BoxShape3D_left")
+
+[node name="CollisionRight" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.125, 1.5, 0)
+shape = SubResource("BoxShape3D_right")
+
+[node name="CollisionTop" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.625, 0)
+shape = SubResource("BoxShape3D_top")
+
+[node name="CollisionBottom" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("BoxShape3D_bottom")
+
+[node name="SocketWallTop" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.0, 0)
+script = ExtResource("2_socket")
+socket_type = 2
+allowed_pieces = [2, 7, 14, 15]

@@ -1,9 +1,12 @@
-[gd_resource type="Resource" script_class="ExplosiveData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="ExplosiveData" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/raiding/explosive_data.gd" id="1"]
 
+[ext_resource type="Texture2D" path="res://assets/textures/icons/satchel_charge.png" id="icon_1"]
+
 [resource]
 script = ExtResource("1")
+icon = ExtResource("icon_1")
 item_name = "Satchel Charge"
 description = "Improvised explosive. Higher damage but 20% dud chance."
 max_stack_size = 10

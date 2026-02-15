@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="BuildingPieceData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/building/building_piece_data.gd" id="1"]
+[ext_resource type="PackedScene" uid="uid://bstairs01" path="res://scenes/building/stairs.tscn" id="2"]
+
+[resource]
+script = ExtResource("1")
+piece_name = "Stairs"
+piece_type = 6
+piece_scene = ExtResource("2")
+build_costs = [10, 50, 100, 200, 400]
+upgrade_costs = [40, 50, 100, 200, 0]

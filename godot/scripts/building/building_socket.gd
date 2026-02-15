@@ -9,6 +9,10 @@ enum SocketType {
 	WALL_TOP,
 	FLOOR_EDGE,
 	DOORWAY,
+	FOUNDATION_SIDE,
+	STAIRS_BOTTOM,
+	STAIRS_TOP,
+	ROOF_BOTTOM,
 }
 
 @export var socket_type: SocketType = SocketType.WALL_BOTTOM

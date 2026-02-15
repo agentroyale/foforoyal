@@ -5,9 +5,9 @@ extends RefCounted
 
 const BASE_WATER_LEVEL := 5.0  # Terrain below this is underwater
 const RIVER_NOISE_THRESHOLD := 0.85  # Higher = narrower rivers
-const LAKE_COUNT := 4
-const LAKE_MIN_RADIUS := 32.0
-const LAKE_MAX_RADIUS := 64.0
+const LAKE_COUNT := 2
+const LAKE_MIN_RADIUS := 24.0
+const LAKE_MAX_RADIUS := 48.0
 
 
 static func get_water_level(world_x: float, world_z: float, noise: FastNoiseLite) -> float:

@@ -21,7 +21,7 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not get_parent().is_multiplayer_authority():
+	if multiplayer.has_multiplayer_peer() and not get_parent().is_multiplayer_authority():
 		return
 	if event.is_action_pressed("primary_action") and _can_swing:
 		var placer := get_parent().get_node_or_null("BuildingPlacer") as BuildingPlacer

@@ -22,6 +22,16 @@ const TIER_COLORS: Array[Color] = [
 	Color(0.75, 0.75, 0.78),   # Armored
 ]
 
+const SHADER_PATHS: Array[String] = [
+	"res://shaders/building_twig.gdshader",
+	"res://shaders/building_wood.gdshader",
+	"res://shaders/building_stone.gdshader",
+	"res://shaders/building_metal.gdshader",
+	"res://shaders/building_armored.gdshader",
+]
+
+static var _material_cache: Dictionary = {}
+
 
 static func get_tier_name(tier: Tier) -> String:
 	return TIER_NAMES[tier]
@@ -33,6 +43,31 @@ static func get_max_hp(tier: Tier) -> int:
 
 static func get_color(tier: Tier) -> Color:
 	return TIER_COLORS[tier]
+
+
+static func get_material(tier: Tier) -> Material:
+	if _material_cache.has(tier):
+		return _material_cache[tier]
+
+	var shader_path: String = SHADER_PATHS[tier]
+	if shader_path.is_empty() or not ResourceLoader.exists(shader_path):
+		# Fallback: plain color material
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = TIER_COLORS[tier]
+		_material_cache[tier] = mat
+		return mat
+
+	var shader := load(shader_path) as Shader
+	if not shader:
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = TIER_COLORS[tier]
+		_material_cache[tier] = mat
+		return mat
+
+	var mat := ShaderMaterial.new()
+	mat.shader = shader
+	_material_cache[tier] = mat
+	return mat
 
 
 static func get_next_tier(tier: Tier) -> Tier:

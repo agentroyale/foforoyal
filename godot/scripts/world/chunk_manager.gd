@@ -6,22 +6,65 @@ signal chunk_loaded(chunk_x: int, chunk_z: int)
 signal chunk_unloaded(chunk_x: int, chunk_z: int)
 
 const CHUNK_SIZE := 256
-const MAP_SIZE := 4096
-const GRID_SIZE := 16
+const MAP_SIZE := 1024
+const GRID_SIZE := 4
 const LOD_DISTANCES := [256.0, 512.0, 1024.0]  # LOD 0, 1, 2 max distances
 const UPDATE_INTERVAL := 0.5  # Seconds between chunk update checks
 
-const GRASS_STEP := 8.0  # Sample every 8m for grass placement
+const GRASS_STEP := 4.0  # Sample every 4m for dense grass
 const GRASS_SCENES: Array[String] = [
 	"res://assets/kaykit/forest/Grass_1_A_Color1.gltf",
+	"res://assets/kaykit/forest/Grass_1_B_Color1.gltf",
+	"res://assets/kaykit/forest/Grass_1_C_Color1.gltf",
+	"res://assets/kaykit/forest/Grass_1_D_Color1.gltf",
 	"res://assets/kaykit/forest/Grass_2_A_Color1.gltf",
+	"res://assets/kaykit/forest/Grass_2_B_Color1.gltf",
+	"res://assets/kaykit/forest/Grass_2_C_Color1.gltf",
+	"res://assets/kaykit/forest/Grass_2_D_Color1.gltf",
 ]
+
+const BUSH_STEP := 12.0  # Bushes every ~12m
+const BUSH_SCENES: Array[String] = [
+	"res://assets/kaykit/forest/Bush_1_A_Color1.gltf",
+	"res://assets/kaykit/forest/Bush_1_B_Color1.gltf",
+	"res://assets/kaykit/forest/Bush_1_C_Color1.gltf",
+	"res://assets/kaykit/forest/Bush_1_D_Color1.gltf",
+	"res://assets/kaykit/forest/Bush_1_E_Color1.gltf",
+	"res://assets/kaykit/forest/Bush_2_A_Color1.gltf",
+	"res://assets/kaykit/forest/Bush_2_B_Color1.gltf",
+	"res://assets/kaykit/forest/Bush_2_C_Color1.gltf",
+	"res://assets/kaykit/forest/Bush_3_A_Color1.gltf",
+	"res://assets/kaykit/forest/Bush_3_B_Color1.gltf",
+	"res://assets/kaykit/forest/Bush_4_A_Color1.gltf",
+	"res://assets/kaykit/forest/Bush_4_B_Color1.gltf",
+	"res://assets/kaykit/forest/Bush_4_C_Color1.gltf",
+]
+
+const HILL_SCENES: Array[String] = [
+	"res://assets/kaykit/forest/Hill_2x2x2_Color1.gltf",
+	"res://assets/kaykit/forest/Hill_2x2x4_Color1.gltf",
+	"res://assets/kaykit/forest/Hill_4x2x2_Color1.gltf",
+	"res://assets/kaykit/forest/Hill_4x2x4_Color1.gltf",
+	"res://assets/kaykit/forest/Hill_4x4x2_Color1.gltf",
+	"res://assets/kaykit/forest/Hill_4x4x4_Color1.gltf",
+	"res://assets/kaykit/forest/Hill_8x4x2_Color1.gltf",
+	"res://assets/kaykit/forest/Hill_8x4x4_Color1.gltf",
+	"res://assets/kaykit/forest/Hill_8x8x2_Color1.gltf",
+	"res://assets/kaykit/forest/Hill_8x8x4_Color1.gltf",
+	"res://assets/kaykit/forest/Hill_8x8x8_Color1.gltf",
+	"res://assets/kaykit/forest/Hill_12x6x4_Color1.gltf",
+	"res://assets/kaykit/forest/Hill_12x12x4_Color1.gltf",
+	"res://assets/kaykit/forest/Hill_12x12x8_Color1.gltf",
+]
+const HILLS_PER_CHUNK := 3  # Max hills per chunk
 
 var _loaded_chunks: Dictionary = {}  # "cx_cz" -> {data: ChunkData, node: Node3D, lod: int}
 var _update_timer: float = 0.0
 var _terrain_material: ShaderMaterial
 var _water_scene: PackedScene
-var _grass_mesh: Mesh
+var _grass_meshes: Array[Mesh] = []
+var _bush_meshes: Array[Mesh] = []
+var _hill_scenes: Array[PackedScene] = []
 
 
 func _ready() -> void:
@@ -33,7 +76,8 @@ func _ready() -> void:
 			_terrain_material.shader = shader
 	if ResourceLoader.exists("res://scenes/world/water_plane.tscn"):
 		_water_scene = load("res://scenes/world/water_plane.tscn")
-	_load_grass_mesh()
+	_load_vegetation_meshes()
+	_load_hill_scenes()
 
 
 func _process(delta: float) -> void:
@@ -173,10 +217,12 @@ func _load_chunk(cx: int, cz: int, lod: int) -> void:
 		water.position = Vector3(CHUNK_SIZE / 2.0, data.water_level, CHUNK_SIZE / 2.0)
 		chunk_node.add_child(water)
 
-	# Resource nodes (only LOD 0)
+	# Resource nodes and vegetation (only LOD 0)
 	if lod == 0:
 		_spawn_resources(data, chunk_node)
 		_spawn_grass(data, chunk_node)
+		_spawn_bushes(data, chunk_node)
+		_spawn_hills(data, chunk_node)
 
 	add_child(chunk_node)
 
@@ -215,21 +261,29 @@ func _spawn_resources(data: ChunkData, parent: Node3D) -> void:
 		parent.add_child(node)
 
 
-func _load_grass_mesh() -> void:
-	## Extract mesh from a KayKit grass GLTF for use in MultiMesh.
+func _load_vegetation_meshes() -> void:
+	## Extract meshes from KayKit GLTF files for MultiMesh usage.
 	for path in GRASS_SCENES:
-		if not ResourceLoader.exists(path):
-			continue
-		var scene := load(path) as PackedScene
-		if not scene:
-			continue
-		var inst := scene.instantiate()
-		var mesh_inst := _find_mesh_instance(inst)
-		if mesh_inst:
-			_grass_mesh = mesh_inst.mesh
-		inst.free()
-		if _grass_mesh:
-			break
+		var mesh := _extract_mesh_from_scene(path)
+		if mesh:
+			_grass_meshes.append(mesh)
+	for path in BUSH_SCENES:
+		var mesh := _extract_mesh_from_scene(path)
+		if mesh:
+			_bush_meshes.append(mesh)
+
+
+func _extract_mesh_from_scene(path: String) -> Mesh:
+	if not ResourceLoader.exists(path):
+		return null
+	var scene := load(path) as PackedScene
+	if not scene:
+		return null
+	var inst := scene.instantiate()
+	var mesh_inst := _find_mesh_instance(inst)
+	var mesh: Mesh = mesh_inst.mesh if mesh_inst else null
+	inst.free()
+	return mesh
 
 
 func _find_mesh_instance(node: Node) -> MeshInstance3D:
@@ -244,14 +298,19 @@ func _find_mesh_instance(node: Node) -> MeshInstance3D:
 
 func _spawn_grass(data: ChunkData, parent: Node3D) -> void:
 	## Create MultiMeshInstance3D with grass scattered across the chunk terrain.
-	if not _grass_mesh:
+	## Uses multiple mesh types for visual variety.
+	if _grass_meshes.is_empty():
 		return
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = data.chunk_x * 1000 + data.chunk_z + 99999
 
-	var transforms: Array[Transform3D] = []
-	var cells := int(CHUNK_SIZE / GRASS_STEP)  # 32
+	# Collect transforms per mesh type
+	var mesh_transforms: Array[Array] = []
+	for i in _grass_meshes.size():
+		mesh_transforms.append([])
+
+	var cells := int(CHUNK_SIZE / GRASS_STEP)
 
 	for gz in cells:
 		for gx in cells:
@@ -264,11 +323,9 @@ func _spawn_grass(data: ChunkData, parent: Node3D) -> void:
 				data.heightmap, local_x, local_z, ChunkData.CHUNK_SIZE
 			)
 
-			# Skip underwater
 			if height < WaterSystem.BASE_WATER_LEVEL:
 				continue
 
-			# Biome density filter
 			var bx := mini(int(local_x / 16.0), ChunkData.BIOME_GRID_SIDE - 1)
 			var bz := mini(int(local_z / 16.0), ChunkData.BIOME_GRID_SIDE - 1)
 			var biome := data.get_biome_at_local(bx, bz)
@@ -280,36 +337,112 @@ func _spawn_grass(data: ChunkData, parent: Node3D) -> void:
 			t = t.scaled(Vector3(scale_f, scale_f, scale_f))
 			t = t.rotated(Vector3.UP, rng.randf_range(0.0, TAU))
 			t.origin = Vector3(local_x, height, local_z)
-			transforms.append(t)
 
-	if transforms.is_empty():
+			var mesh_idx := rng.randi() % _grass_meshes.size()
+			mesh_transforms[mesh_idx].append(t)
+
+	# Create one MultiMeshInstance3D per mesh type
+	for i in _grass_meshes.size():
+		var tforms: Array = mesh_transforms[i]
+		if tforms.is_empty():
+			continue
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = _grass_meshes[i]
+		mm.instance_count = tforms.size()
+		for j in tforms.size():
+			mm.set_instance_transform(j, tforms[j])
+		var multi := MultiMeshInstance3D.new()
+		multi.name = "Grass_%d" % i
+		multi.multimesh = mm
+		parent.add_child(multi)
+
+
+func _spawn_bushes(data: ChunkData, parent: Node3D) -> void:
+	## Scatter decorative bushes across the chunk using MultiMeshInstance3D.
+	if _bush_meshes.is_empty():
 		return
 
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = _grass_mesh
-	mm.instance_count = transforms.size()
-	for i in transforms.size():
-		mm.set_instance_transform(i, transforms[i])
+	var rng := RandomNumberGenerator.new()
+	rng.seed = data.chunk_x * 2000 + data.chunk_z + 77777
 
-	var multi := MultiMeshInstance3D.new()
-	multi.name = "Grass"
-	multi.multimesh = mm
-	parent.add_child(multi)
+	var mesh_transforms: Array[Array] = []
+	for i in _bush_meshes.size():
+		mesh_transforms.append([])
+
+	var cells := int(CHUNK_SIZE / BUSH_STEP)
+
+	for gz in cells:
+		for gx in cells:
+			var local_x := gx * BUSH_STEP + rng.randf_range(0.0, BUSH_STEP)
+			var local_z := gz * BUSH_STEP + rng.randf_range(0.0, BUSH_STEP)
+			local_x = clampf(local_x, 0.0, CHUNK_SIZE - 0.1)
+			local_z = clampf(local_z, 0.0, CHUNK_SIZE - 0.1)
+
+			var height := TerrainGenerator.get_height_from_map(
+				data.heightmap, local_x, local_z, ChunkData.CHUNK_SIZE
+			)
+
+			if height < WaterSystem.BASE_WATER_LEVEL:
+				continue
+
+			var bx := mini(int(local_x / 16.0), ChunkData.BIOME_GRID_SIDE - 1)
+			var bz := mini(int(local_z / 16.0), ChunkData.BIOME_GRID_SIDE - 1)
+			var biome := data.get_biome_at_local(bx, bz)
+			if rng.randf() > _get_bush_density(biome):
+				continue
+
+			var t := Transform3D.IDENTITY
+			var scale_f := rng.randf_range(0.7, 1.3)
+			t = t.scaled(Vector3(scale_f, scale_f, scale_f))
+			t = t.rotated(Vector3.UP, rng.randf_range(0.0, TAU))
+			t.origin = Vector3(local_x, height, local_z)
+
+			var mesh_idx := rng.randi() % _bush_meshes.size()
+			mesh_transforms[mesh_idx].append(t)
+
+	for i in _bush_meshes.size():
+		var tforms: Array = mesh_transforms[i]
+		if tforms.is_empty():
+			continue
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = _bush_meshes[i]
+		mm.instance_count = tforms.size()
+		for j in tforms.size():
+			mm.set_instance_transform(j, tforms[j])
+		var multi := MultiMeshInstance3D.new()
+		multi.name = "Bush_%d" % i
+		multi.multimesh = mm
+		parent.add_child(multi)
 
 
 func _get_grass_density(biome: int) -> float:
 	match biome:
 		BiomeData.BiomeType.FOREST:
-			return 0.8
+			return 0.85
 		BiomeData.BiomeType.GRASSLAND:
-			return 0.6
+			return 0.7
 		BiomeData.BiomeType.DESERT:
-			return 0.1
+			return 0.08
 		BiomeData.BiomeType.ARCTIC:
-			return 0.15
+			return 0.12
 		_:
 			return 0.4
+
+
+func _get_bush_density(biome: int) -> float:
+	match biome:
+		BiomeData.BiomeType.FOREST:
+			return 0.7
+		BiomeData.BiomeType.GRASSLAND:
+			return 0.4
+		BiomeData.BiomeType.DESERT:
+			return 0.05
+		BiomeData.BiomeType.ARCTIC:
+			return 0.08
+		_:
+			return 0.3
 
 
 func _generate_biome_colors(data: ChunkData) -> PackedColorArray:
@@ -343,3 +476,67 @@ func get_loaded_chunk_count() -> int:
 
 func is_chunk_loaded(cx: int, cz: int) -> bool:
 	return _loaded_chunks.has(_chunk_key(cx, cz))
+
+
+func _load_hill_scenes() -> void:
+	for path in HILL_SCENES:
+		if ResourceLoader.exists(path):
+			var scene := load(path) as PackedScene
+			if scene:
+				_hill_scenes.append(scene)
+
+
+func _spawn_hills(data: ChunkData, parent: Node3D) -> void:
+	## Place 3D hill/mountain models on the chunk for terrain variety.
+	if _hill_scenes.is_empty():
+		return
+
+	var rng := RandomNumberGenerator.new()
+	rng.seed = data.chunk_x * 3000 + data.chunk_z + 55555
+
+	for i in HILLS_PER_CHUNK:
+		# Random position within the chunk
+		var local_x := rng.randf_range(30.0, CHUNK_SIZE - 30.0)
+		var local_z := rng.randf_range(30.0, CHUNK_SIZE - 30.0)
+
+		var height := TerrainGenerator.get_height_from_map(
+			data.heightmap, local_x, local_z, ChunkData.CHUNK_SIZE
+		)
+
+		# Skip underwater
+		if height < WaterSystem.BASE_WATER_LEVEL + 1.0:
+			continue
+
+		# Biome filter: more hills in rocky/mountain areas, fewer in flat
+		var bx := mini(int(local_x / 16.0), ChunkData.BIOME_GRID_SIDE - 1)
+		var bz := mini(int(local_z / 16.0), ChunkData.BIOME_GRID_SIDE - 1)
+		var biome := data.get_biome_at_local(bx, bz)
+		var hill_chance := _get_hill_chance(biome)
+		if rng.randf() > hill_chance:
+			continue
+
+		# Pick a random hill model
+		var scene := _hill_scenes[rng.randi() % _hill_scenes.size()]
+		var hill := scene.instantiate()
+		hill.position = Vector3(local_x, height - 0.5, local_z)
+		hill.rotation.y = rng.randf_range(0.0, TAU)
+
+		# Scale variation
+		var scale_f := rng.randf_range(0.8, 1.5)
+		hill.scale = Vector3(scale_f, scale_f, scale_f)
+
+		parent.add_child(hill)
+
+
+func _get_hill_chance(biome: int) -> float:
+	match biome:
+		BiomeData.BiomeType.FOREST:
+			return 0.5
+		BiomeData.BiomeType.GRASSLAND:
+			return 0.35
+		BiomeData.BiomeType.DESERT:
+			return 0.6
+		BiomeData.BiomeType.ARCTIC:
+			return 0.55
+		_:
+			return 0.4

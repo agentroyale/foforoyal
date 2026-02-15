@@ -4,7 +4,7 @@ extends RefCounted
 ## Same seed + chunk always produces the same placement.
 ## All static methods.
 
-const SPAWN_CELL_SIZE := 32.0  # One potential spawn per 32x32m cell
+const SPAWN_CELL_SIZE := 16.0  # One potential spawn per 16x16m cell
 const MIN_DISTANCE_FROM_WATER := 4.0
 
 ## Resource node scene paths
