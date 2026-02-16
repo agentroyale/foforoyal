@@ -230,8 +230,9 @@ func _apply_touch_camera_delta() -> void:
 	var td: Vector2 = mi.consume_camera_delta()
 	if td.length_squared() < 0.0001:
 		return
-	var sens := BASE_SENSITIVITY * mi.touch_sensitivity
-	var sens_mult := ADS_SENSITIVITY_MULT if is_aiming else 1.0
+	var touch_sens: float = mi.touch_sensitivity
+	var sens: float = BASE_SENSITIVITY * touch_sens
+	var sens_mult: float = ADS_SENSITIVITY_MULT if is_aiming else 1.0
 	get_parent().rotate_y(-td.x * sens * sens_mult)
-	var new_pitch := rotation.x - td.y * sens * sens_mult
+	var new_pitch: float = rotation.x - td.y * sens * sens_mult
 	rotation.x = clamp(new_pitch, deg_to_rad(PITCH_MIN), deg_to_rad(PITCH_MAX))
