@@ -167,10 +167,10 @@ func show_death(damage_type: int = -1) -> void:
 	_cause_label.modulate.a = 0.0
 	_respawn_button.modulate.a = 0.0
 
-	# BR mode: hide respawn, show placement
+	# Show placement in BR, always show respawn
+	_respawn_button.visible = true
 	var is_br := MatchManager.is_br_mode()
 	if is_br:
-		_respawn_button.visible = false
 		var local_id := NetworkManager.get_local_peer_id()
 		var placement := MatchManager.get_placement(local_id)
 		if placement > 0:
@@ -178,7 +178,6 @@ func show_death(damage_type: int = -1) -> void:
 		else:
 			_placement_label.text = ""
 	else:
-		_respawn_button.visible = true
 		_placement_label.text = ""
 
 	# Animate fade in sequence
@@ -199,9 +198,8 @@ func show_death(damage_type: int = -1) -> void:
 	if is_br and _placement_label.text != "":
 		tween.parallel().tween_property(_placement_label, "modulate:a", 1.0, 0.5).set_delay(BUTTON_DELAY)
 
-	# Respawn button (only in survival)
-	if not is_br:
-		tween.parallel().tween_property(_respawn_button, "modulate:a", 1.0, 0.5).set_delay(BUTTON_DELAY)
+	# Respawn button
+	tween.parallel().tween_property(_respawn_button, "modulate:a", 1.0, 0.5).set_delay(BUTTON_DELAY)
 
 
 func hide_death() -> void:

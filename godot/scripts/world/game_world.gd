@@ -3,6 +3,9 @@ extends Node3D
 ## Initializes WorldGenerator and positions the player on safe terrain.
 ## In BR mode, also spawns lobby area, zone controller, drop controller, and victory screen.
 
+const BOT_COUNT := 12
+const BOT_SCENE := preload("res://scenes/ai/bot.tscn")
+
 var _zone_controller: Node = null
 var _zone_visual: Node3D = null
 var _drop_controller: Node = null
@@ -113,6 +116,43 @@ func _on_world_ready(_seed: int) -> void:
 		player.global_position = Vector3(spawn_x, safe_y, spawn_z)
 		player.velocity = Vector3.ZERO
 		player.set_physics_process(true)
+	_spawn_bots(Vector3(spawn_x, 0.0, spawn_z))
+
+
+func _spawn_bots(center: Vector3) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 99999
+	var space := get_world_3d().direct_space_state
+	for i in BOT_COUNT:
+		var bot: BotController = BOT_SCENE.instantiate()
+		bot.name = "Bot_%d" % i
+		var glb: String = BotController.CHARACTER_GLBS[rng.randi() % BotController.CHARACTER_GLBS.size()]
+		var wpn: String = BotController.WEAPON_PATHS[rng.randi() % BotController.WEAPON_PATHS.size()]
+		add_child(bot)
+		bot.setup(glb, wpn)
+		bot.global_position = _find_clear_spawn(center, rng, space)
+
+
+func _find_clear_spawn(center: Vector3, rng: RandomNumberGenerator, space: PhysicsDirectSpaceState3D) -> Vector3:
+	for _attempt in 10:
+		var angle := rng.randf() * TAU
+		var dist := rng.randf_range(15.0, 80.0)
+		var x := center.x + cos(angle) * dist
+		var z := center.z + sin(angle) * dist
+		if not space:
+			var h := WorldGenerator.get_height_at(x, z)
+			return Vector3(x, maxf(h, 0.0) + 2.0, z)
+		# Raycast from sky downward — if we hit a roof (y > 3m), skip this spot
+		var query := PhysicsRayQueryParameters3D.create(
+			Vector3(x, 100.0, z), Vector3(x, -1.0, z))
+		var result := space.intersect_ray(query)
+		if result.is_empty():
+			var h := WorldGenerator.get_height_at(x, z)
+			return Vector3(x, maxf(h, 0.0) + 2.0, z)
+		if result.position.y < 3.0:
+			return Vector3(x, result.position.y + 1.5, z)
+	# Fallback: near center
+	return Vector3(center.x + 15.0, 2.0, center.z)
 
 
 func _get_seed() -> int:

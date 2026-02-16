@@ -1,0 +1,46 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/ai/bot_controller.gd" id="1_bot"]
+[ext_resource type="Script" path="res://scripts/player/player_model.gd" id="2_pmodel"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/adventurers/Barbarian.glb" id="3_model"]
+[ext_resource type="Script" path="res://scripts/player/player_inventory.gd" id="4_inventory"]
+[ext_resource type="Script" path="res://scripts/combat/health_system.gd" id="5_health"]
+[ext_resource type="Script" path="res://scripts/combat/weapon_controller.gd" id="6_weapon"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_001"]
+height = 1.8
+radius = 0.35
+
+[node name="Bot" type="CharacterBody3D"]
+floor_max_angle = 0.87
+floor_snap_length = 0.5
+script = ExtResource("1_bot")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_001")
+
+[node name="PlayerModel" parent="." instance=ExtResource("3_model")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+script = ExtResource("2_pmodel")
+
+[node name="CameraPivot" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4, 0)
+
+[node name="Camera3D" type="Camera3D" parent="CameraPivot"]
+current = false
+fov = 75.0
+
+[node name="DetectionRay" type="RayCast3D" parent="."]
+target_position = Vector3(0, 0, -50)
+collision_mask = 1
+enabled = false
+
+[node name="PlayerInventory" type="Node" parent="."]
+script = ExtResource("4_inventory")
+
+[node name="HealthSystem" type="Node" parent="."]
+script = ExtResource("5_health")
+
+[node name="WeaponController" type="Node" parent="."]
+script = ExtResource("6_weapon")

@@ -97,8 +97,8 @@ func _build_ui() -> void:
 
 	_ip_input = LineEdit.new()
 	_ip_input.name = "IPInput"
-	_ip_input.text = "127.0.0.1"
-	_ip_input.placeholder_text = "IP"
+	_ip_input.text = "game.chibiroyale.xyz"
+	_ip_input.placeholder_text = "IP or hostname"
 	_ip_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hbox.add_child(_ip_input)
 
