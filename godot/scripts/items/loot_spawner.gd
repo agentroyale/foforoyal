@@ -3,9 +3,9 @@ extends RefCounted
 ## Static helper for generating loot positions in chunks.
 ## Deterministic based on seed + chunk position.
 
-const DENSITY_NORMAL := 3  # items per chunk in wilderness
-const DENSITY_POI := 12  # items per chunk near POIs
-const CHUNK_SIZE := 64.0
+const DENSITY_NORMAL := 8  # items per chunk in wilderness
+const DENSITY_POI := 24  # items per chunk near POIs
+const CHUNK_SIZE := 256.0
 
 
 static func generate_loot_positions(chunk_x: int, chunk_z: int, seed_val: int, is_poi: bool = false) -> Array[Dictionary]:

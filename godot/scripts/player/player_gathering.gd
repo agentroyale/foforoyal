@@ -28,6 +28,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		if placer and placer.is_build_mode:
 			return
 
+		# Consumable use takes priority
+		var use_sys := get_parent().get_node_or_null("ItemUseSystem") as ItemUseSystem
+		if use_sys and use_sys.try_use():
+			return
+
 		# Weapon takes priority over gathering
 		var weapon_ctrl := get_parent().get_node_or_null("WeaponController") as WeaponController
 		if weapon_ctrl:

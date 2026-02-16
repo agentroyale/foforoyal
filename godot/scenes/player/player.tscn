@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3 uid="uid://bplayer001"]
+[gd_scene load_steps=18 format=3 uid="uid://bplayer001"]
 
 [ext_resource type="Script" path="res://scripts/player/player_controller.gd" id="1_controller"]
 [ext_resource type="Script" path="res://scripts/player/player_camera.gd" id="2_camera"]
@@ -15,6 +15,7 @@
 [ext_resource type="Script" path="res://scripts/player/stamina_system.gd" id="13_stamina"]
 [ext_resource type="Script" path="res://scripts/networking/network_sync.gd" id="14_netsync"]
 [ext_resource type="Script" path="res://scripts/player/parachute_controller.gd" id="15_parachute"]
+[ext_resource type="Script" path="res://scripts/items/item_use_system.gd" id="16_itemuse"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_001"]
 height = 1.8
@@ -80,3 +81,6 @@ script = ExtResource("14_netsync")
 
 [node name="ParachuteController" type="Node" parent="."]
 script = ExtResource("15_parachute")
+
+[node name="ItemUseSystem" type="Node" parent="."]
+script = ExtResource("16_itemuse")

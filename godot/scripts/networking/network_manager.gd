@@ -72,7 +72,8 @@ func get_peer_count() -> int:
 
 
 func _ready() -> void:
-	if "--server" in OS.get_cmdline_args():
+	var all_args := OS.get_cmdline_args() + OS.get_cmdline_user_args()
+	if "--server" in all_args:
 		var port := _parse_arg_int("--port", DEFAULT_PORT)
 		var err := host_server(port)
 		if err == OK:
@@ -88,7 +89,7 @@ func _load_server_scene() -> void:
 
 
 func _parse_arg_int(prefix: String, default_val: int) -> int:
-	for arg in OS.get_cmdline_args():
+	for arg in OS.get_cmdline_args() + OS.get_cmdline_user_args():
 		if arg.begins_with(prefix + "="):
 			return int(arg.split("=")[1])
 	return default_val

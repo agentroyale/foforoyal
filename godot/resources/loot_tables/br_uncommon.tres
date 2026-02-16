@@ -1,10 +1,15 @@
-[gd_resource type="Resource" script_class="LootTable" load_steps=6 format=3]
+[gd_resource type="Resource" script_class="LootTable" load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scripts/gamemode/loot_table.gd" id="1_script"]
 [ext_resource type="Resource" path="res://resources/weapons/revolver.tres" id="revolver"]
 [ext_resource type="Resource" path="res://resources/weapons/mp5.tres" id="mp5"]
 [ext_resource type="Resource" path="res://resources/weapons/pump_shotgun.tres" id="pump_shotgun"]
 [ext_resource type="Resource" path="res://resources/weapons/assault_rifle.tres" id="assault_rifle"]
+[ext_resource type="Resource" path="res://resources/items/rifle_ammo.tres" id="rifle_ammo"]
+[ext_resource type="Resource" path="res://resources/items/shotgun_ammo.tres" id="shotgun_ammo"]
+[ext_resource type="Resource" path="res://resources/items/pistol_ammo.tres" id="pistol_ammo"]
+[ext_resource type="Resource" path="res://resources/items/bandage.tres" id="bandage"]
+[ext_resource type="Resource" path="res://resources/items/medkit.tres" id="medkit"]
 
 [resource]
 script = ExtResource("1_script")
@@ -26,6 +31,31 @@ entries = [{
 }, {
 "item": ExtResource("assault_rifle"),
 "weight": 1.0,
+"min_count": 1,
+"max_count": 1
+}, {
+"item": ExtResource("rifle_ammo"),
+"weight": 4.0,
+"min_count": 10,
+"max_count": 20
+}, {
+"item": ExtResource("shotgun_ammo"),
+"weight": 3.0,
+"min_count": 4,
+"max_count": 8
+}, {
+"item": ExtResource("pistol_ammo"),
+"weight": 3.0,
+"min_count": 10,
+"max_count": 20
+}, {
+"item": ExtResource("bandage"),
+"weight": 2.5,
+"min_count": 1,
+"max_count": 3
+}, {
+"item": ExtResource("medkit"),
+"weight": 1.5,
 "min_count": 1,
 "max_count": 1
 }]

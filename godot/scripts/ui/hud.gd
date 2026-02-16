@@ -41,6 +41,9 @@ var _zone_timer_label: Label
 var _pickup_label: Label
 var _pickup_fade_timer: float = 0.0
 var _touch_controls: Control = null
+var _interaction_ray: PlayerInteraction = null
+var _item_use_system: ItemUseSystem = null
+var _use_progress_bar: ProgressBar = null
 
 
 func _ready() -> void:
@@ -48,6 +51,7 @@ func _ready() -> void:
 	_create_weapon_panel_style()
 	_create_zone_ui()
 	_create_pickup_label()
+	_create_use_progress_bar()
 	_connect_build_signals.call_deferred()
 	_connect_hotbar.call_deferred()
 	_setup_death_screen.call_deferred()
@@ -111,6 +115,30 @@ func _create_pickup_label() -> void:
 	add_child(_pickup_label)
 
 
+func _create_use_progress_bar() -> void:
+	_use_progress_bar = ProgressBar.new()
+	_use_progress_bar.name = "UseProgressBar"
+	_use_progress_bar.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	_use_progress_bar.offset_left = -100.0
+	_use_progress_bar.offset_right = 100.0
+	_use_progress_bar.offset_top = 40.0
+	_use_progress_bar.offset_bottom = 58.0
+	_use_progress_bar.min_value = 0.0
+	_use_progress_bar.max_value = 1.0
+	_use_progress_bar.value = 0.0
+	_use_progress_bar.show_percentage = false
+	var bar_bg := StyleBoxFlat.new()
+	bar_bg.bg_color = Color(0.1, 0.1, 0.1, 0.7)
+	bar_bg.set_corner_radius_all(4)
+	_use_progress_bar.add_theme_stylebox_override("background", bar_bg)
+	var bar_fill := StyleBoxFlat.new()
+	bar_fill.bg_color = Color(0.3, 0.8, 0.3, 0.9)
+	bar_fill.set_corner_radius_all(4)
+	_use_progress_bar.add_theme_stylebox_override("fill", bar_fill)
+	_use_progress_bar.visible = false
+	add_child(_use_progress_bar)
+
+
 func _create_slot_styles() -> void:
 	_style_normal = StyleBoxFlat.new()
 	_style_normal.bg_color = Color(0.1, 0.1, 0.15, 0.75)
@@ -160,7 +188,21 @@ func _connect_hotbar() -> void:
 	if _player_inv:
 		_player_inv.active_slot_changed.connect(_on_active_slot_changed)
 		_player_inv.hotbar.inventory_changed.connect(_refresh_hotbar)
+		_player_inv.item_added.connect(_on_item_added)
 		_refresh_hotbar()
+
+	# Interaction ray
+	_interaction_ray = _player.get_node_or_null("CameraPivot/InteractionRay") as PlayerInteraction
+	if _interaction_ray:
+		_interaction_ray.interaction_target_changed.connect(_on_interaction_target_changed)
+
+	# Item use system
+	_item_use_system = _player.get_node_or_null("ItemUseSystem") as ItemUseSystem
+	if _item_use_system:
+		_item_use_system.use_started.connect(_on_use_started)
+		_item_use_system.use_progress.connect(_on_use_progress)
+		_item_use_system.use_completed.connect(_on_use_completed)
+		_item_use_system.use_cancelled.connect(_on_use_cancelled)
 
 	if _weapon_ctrl:
 		_weapon_ctrl.ammo_changed.connect(_on_ammo_changed)
@@ -332,6 +374,45 @@ func show_interaction_prompt(text: String) -> void:
 
 func hide_interaction_prompt() -> void:
 	interaction_label.text = ""
+
+
+func _on_interaction_target_changed(target: Node3D) -> void:
+	if target and target is GroundItem:
+		var gi := target as GroundItem
+		if gi.item_data:
+			var count_str := " x%d" % gi.item_count if gi.item_count > 1 else ""
+			show_interaction_prompt("[E] Pegar %s%s" % [gi.item_data.item_name, count_str])
+		else:
+			show_interaction_prompt("[E] Pegar")
+	elif target and target.has_method("interact"):
+		show_interaction_prompt("[E] Interagir")
+	else:
+		hide_interaction_prompt()
+
+
+func _on_item_added(item: ItemData, count: int) -> void:
+	show_pickup_notification(item.item_name)
+
+
+func _on_use_started(_item: ItemData) -> void:
+	if _use_progress_bar:
+		_use_progress_bar.value = 0.0
+		_use_progress_bar.visible = true
+
+
+func _on_use_progress(progress: float) -> void:
+	if _use_progress_bar:
+		_use_progress_bar.value = progress
+
+
+func _on_use_completed(_item: ItemData) -> void:
+	if _use_progress_bar:
+		_use_progress_bar.visible = false
+
+
+func _on_use_cancelled() -> void:
+	if _use_progress_bar:
+		_use_progress_bar.visible = false
 
 
 func _on_build_mode_changed(active: bool) -> void:

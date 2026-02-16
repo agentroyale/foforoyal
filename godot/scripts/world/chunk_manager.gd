@@ -68,6 +68,8 @@ var _grass_meshes: Array[Mesh] = []
 var _bush_meshes: Array[Mesh] = []
 var _hill_scenes: Array[PackedScene] = []
 var _city_scene_cache: Dictionary = {}  # scene_name -> PackedScene
+var _loot_tables: Dictionary = {}  # "common"/"uncommon"/"rare" -> LootTable
+var _ground_item_scene: PackedScene
 
 
 func _ready() -> void:
@@ -81,6 +83,7 @@ func _ready() -> void:
 		_water_scene = load("res://scenes/world/water_plane.tscn")
 	_load_vegetation_meshes()
 	_load_hill_scenes()
+	_load_loot_tables()
 
 
 func _process(delta: float) -> void:
@@ -231,6 +234,7 @@ func _load_chunk(cx: int, cz: int, lod: int) -> void:
 			_spawn_grass(data, chunk_node)
 			_spawn_bushes(data, chunk_node)
 			_spawn_hills(data, chunk_node)
+		_spawn_loot_items(cx, cz, chunk_node, data, wg, is_city)
 
 	add_child(chunk_node)
 
@@ -627,3 +631,70 @@ func _add_trimesh_collision(node: Node) -> void:
 				node.add_child(body)
 		elif child.get_child_count() > 0:
 			_add_trimesh_collision(child)
+
+
+func _load_loot_tables() -> void:
+	var paths := {
+		"common": "res://resources/loot_tables/br_common.tres",
+		"uncommon": "res://resources/loot_tables/br_uncommon.tres",
+		"rare": "res://resources/loot_tables/br_rare.tres",
+	}
+	for tier in paths:
+		var path: String = paths[tier]
+		if ResourceLoader.exists(path):
+			var table := load(path) as LootTable
+			if table:
+				_loot_tables[tier] = table
+	if ResourceLoader.exists("res://scenes/items/ground_item.tscn"):
+		_ground_item_scene = load("res://scenes/items/ground_item.tscn")
+
+
+func _spawn_loot_items(cx: int, cz: int, chunk_node: Node3D, data: ChunkData, wg: Node, is_city: bool) -> void:
+	## Spawn ground loot items in this chunk using LootSpawner positions.
+	if _loot_tables.is_empty() or not _ground_item_scene:
+		return
+
+	var seed_val: int = wg.world_seed if wg else 0
+	var positions := LootSpawner.generate_loot_positions(cx, cz, seed_val, is_city)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_val + cx * 48271 + cz * 16807
+
+	var chunk_origin := chunk_node.position
+
+	for spawn in positions:
+		var tier: String = spawn["table_tier"]
+		var table: LootTable = _loot_tables.get(tier) as LootTable
+		if not table:
+			continue
+
+		var loot := LootTable.roll(table, rng)
+		if loot.is_empty():
+			continue
+
+		var item_data: ItemData = loot[0]["item"]
+		var count: int = loot[0]["count"]
+		if not item_data:
+			continue
+
+		var world_pos: Vector3 = spawn["position"]
+
+		# Get ground height
+		var ground_y: float
+		if is_city:
+			ground_y = 0.5  # Road surface
+		else:
+			var local_x := world_pos.x - chunk_origin.x
+			var local_z := world_pos.z - chunk_origin.z
+			local_x = clampf(local_x, 0.0, CHUNK_SIZE - 0.1)
+			local_z = clampf(local_z, 0.0, CHUNK_SIZE - 0.1)
+			ground_y = TerrainGenerator.get_height_from_map(
+				data.heightmap, local_x, local_z, ChunkData.CHUNK_SIZE
+			)
+
+		var gi: GroundItem = _ground_item_scene.instantiate()
+		gi.item_data = item_data
+		gi.item_count = count
+		gi.position = Vector3(world_pos.x - chunk_origin.x, ground_y + 0.3, world_pos.z - chunk_origin.z)
+		gi.freeze = true
+		chunk_node.add_child(gi)
+		gi._settled = true

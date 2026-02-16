@@ -1,10 +1,13 @@
-[gd_resource type="Resource" script_class="LootTable" load_steps=6 format=3]
+[gd_resource type="Resource" script_class="LootTable" load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/gamemode/loot_table.gd" id="1_script"]
 [ext_resource type="Resource" path="res://resources/weapons/pistol.tres" id="pistol"]
 [ext_resource type="Resource" path="res://resources/weapons/thompson.tres" id="thompson"]
 [ext_resource type="Resource" path="res://resources/weapons/rock_weapon.tres" id="rock"]
 [ext_resource type="Resource" path="res://resources/weapons/hunting_bow.tres" id="bow"]
+[ext_resource type="Resource" path="res://resources/items/pistol_ammo.tres" id="pistol_ammo"]
+[ext_resource type="Resource" path="res://resources/items/arrow.tres" id="arrow"]
+[ext_resource type="Resource" path="res://resources/items/bandage.tres" id="bandage"]
 
 [resource]
 script = ExtResource("1_script")
@@ -28,4 +31,19 @@ entries = [{
 "weight": 1.0,
 "min_count": 1,
 "max_count": 1
+}, {
+"item": ExtResource("pistol_ammo"),
+"weight": 5.0,
+"min_count": 8,
+"max_count": 15
+}, {
+"item": ExtResource("arrow"),
+"weight": 3.0,
+"min_count": 3,
+"max_count": 8
+}, {
+"item": ExtResource("bandage"),
+"weight": 4.0,
+"min_count": 1,
+"max_count": 3
 }]

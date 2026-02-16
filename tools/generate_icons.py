@@ -66,6 +66,13 @@ ITEMS = {
     "roof": "a triangular wooden roof piece / sloped roof panel",
     "window_frame": "a wooden wall with a window opening",
     "tool_cupboard": "a small wooden cupboard/cabinet for tools",
+    # Ammo
+    "pistol_ammo": "a box of pistol ammunition, small brass bullets in a cardboard box",
+    "rifle_ammo": "a box of rifle ammunition, long brass cartridges in a green metal box",
+    "shotgun_ammo": "a box of red shotgun shells, a few shells sticking out",
+    "arrow": "a single wooden arrow with feather fletching and stone arrowhead",
+    # Medical
+    "medkit": "a white first aid kit box with a red cross symbol",
 }
 
 
