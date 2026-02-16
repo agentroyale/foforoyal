@@ -2,8 +2,8 @@ class_name WeaponData
 extends ItemData
 ## Data resource for combat weapons.
 
-enum WeaponType { MELEE = 0, BOW = 1, PISTOL = 2, SMG = 3 }
-enum AmmoType { NONE = 0, ARROW = 1, PISTOL_AMMO = 2, RIFLE_AMMO = 3 }
+enum WeaponType { MELEE = 0, BOW = 1, PISTOL = 2, SMG = 3, SHOTGUN = 4, SNIPER = 5, AR = 6 }
+enum AmmoType { NONE = 0, ARROW = 1, PISTOL_AMMO = 2, RIFLE_AMMO = 3, SHOTGUN_AMMO = 4 }
 
 @export var weapon_type: WeaponType = WeaponType.MELEE
 @export var base_damage: float = 10.0

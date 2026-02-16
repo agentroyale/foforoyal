@@ -1,7 +1,31 @@
-[gd_resource type="Resource" script_class="LootTable" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="LootTable" load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/gamemode/loot_table.gd" id="1_script"]
+[ext_resource type="Resource" path="res://resources/weapons/pistol.tres" id="pistol"]
+[ext_resource type="Resource" path="res://resources/weapons/thompson.tres" id="thompson"]
+[ext_resource type="Resource" path="res://resources/weapons/rock_weapon.tres" id="rock"]
+[ext_resource type="Resource" path="res://resources/weapons/hunting_bow.tres" id="bow"]
 
 [resource]
 script = ExtResource("1_script")
-entries = []
+entries = [{
+"item": ExtResource("pistol"),
+"weight": 1.0,
+"min_count": 1,
+"max_count": 1
+}, {
+"item": ExtResource("thompson"),
+"weight": 1.0,
+"min_count": 1,
+"max_count": 1
+}, {
+"item": ExtResource("rock"),
+"weight": 1.0,
+"min_count": 1,
+"max_count": 1
+}, {
+"item": ExtResource("bow"),
+"weight": 1.0,
+"min_count": 1,
+"max_count": 1
+}]

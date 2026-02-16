@@ -45,7 +45,8 @@ func _ready() -> void:
 		set_process_unhandled_input(false)
 		set_process(false)
 		return
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	if not _is_mobile():
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -67,6 +68,9 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
+	# Consume touch camera delta (mobile)
+	_apply_touch_camera_delta()
+
 	# Always show model in TPS
 	var model := get_parent().get_node_or_null("PlayerModel")
 	if model:
@@ -212,3 +216,22 @@ func _get_settings_fov() -> float:
 	var gs: Node = get_node_or_null("/root/GameSettings")
 	var result: float = gs.fov if gs else DEFAULT_NORMAL_FOV
 	return result
+
+
+func _is_mobile() -> bool:
+	var mi: Node = get_node_or_null("/root/MobileInput")
+	return mi != null and mi.is_mobile
+
+
+func _apply_touch_camera_delta() -> void:
+	var mi: Node = get_node_or_null("/root/MobileInput")
+	if not mi or not mi.is_mobile:
+		return
+	var td: Vector2 = mi.consume_camera_delta()
+	if td.length_squared() < 0.0001:
+		return
+	var sens := BASE_SENSITIVITY * mi.touch_sensitivity
+	var sens_mult := ADS_SENSITIVITY_MULT if is_aiming else 1.0
+	get_parent().rotate_y(-td.x * sens * sens_mult)
+	var new_pitch := rotation.x - td.y * sens * sens_mult
+	rotation.x = clamp(new_pitch, deg_to_rad(PITCH_MIN), deg_to_rad(PITCH_MAX))

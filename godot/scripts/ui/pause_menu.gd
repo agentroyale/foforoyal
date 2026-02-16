@@ -53,7 +53,8 @@ func _unpause() -> void:
 	_close_settings()
 	is_paused = false
 	get_tree().paused = false
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	if not _is_mobile():
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	_hide_menu()
 
 
@@ -102,6 +103,11 @@ func _on_main_menu() -> void:
 	get_tree().paused = false
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	get_tree().change_scene_to_file(MAIN_MENU_PATH)
+
+
+func _is_mobile() -> bool:
+	var mi: Node = get_node_or_null("/root/MobileInput")
+	return mi != null and mi.is_mobile
 
 
 func _on_quit() -> void:

@@ -8,8 +8,11 @@ const MAP_SIZE := 1024
 const CHUNK_SIZE := 256
 const GRID_SIZE := 4  # MAP_SIZE / CHUNK_SIZE
 
+enum WorldType { TERRAIN = 0, CITY = 1 }
+
 var world_seed: int = 0
 var is_initialized: bool = false
+var world_type: WorldType = WorldType.TERRAIN
 
 var _noise_height: FastNoiseLite
 var _noise_temperature: FastNoiseLite
@@ -18,6 +21,7 @@ var _noise_water: FastNoiseLite
 
 var _lakes: Array[Dictionary] = []
 var _monument_positions: Array[Dictionary] = []
+var _city_layout: Dictionary = {}
 
 
 func _ready() -> void:
@@ -25,15 +29,19 @@ func _ready() -> void:
 	pass
 
 
-func initialize(seed_value: int) -> void:
+func initialize(seed_value: int, wtype: WorldType = WorldType.TERRAIN) -> void:
 	## Setup all noise generators and pre-generate global features.
 	world_seed = seed_value
+	world_type = wtype
 	_setup_noise()
 	is_initialized = true  # Set early — noise is ready, get_height_at works
-	_lakes = WaterSystem.get_lake_positions(world_seed, MAP_SIZE)
-	_monument_positions = MonumentSpawner.generate_monument_positions(
-		world_seed, MAP_SIZE, get_height_at
-	)
+	if world_type == WorldType.CITY:
+		_city_layout = CityGenerator.generate_layout(world_seed, MAP_SIZE)
+	else:
+		_lakes = WaterSystem.get_lake_positions(world_seed, MAP_SIZE)
+		_monument_positions = MonumentSpawner.generate_monument_positions(
+			world_seed, MAP_SIZE, get_height_at
+		)
 	world_initialized.emit(seed_value)
 
 
@@ -43,6 +51,9 @@ func generate_chunk_data(chunk_x: int, chunk_z: int) -> ChunkData:
 	var data := ChunkData.new()
 	data.chunk_x = chunk_x
 	data.chunk_z = chunk_z
+
+	if world_type == WorldType.CITY:
+		return _generate_city_chunk_data(data)
 
 	# Heightmap
 	data.heightmap = TerrainGenerator.generate_heightmap(
@@ -70,9 +81,26 @@ func generate_chunk_data(chunk_x: int, chunk_z: int) -> ChunkData:
 	return data
 
 
+func _generate_city_chunk_data(data: ChunkData) -> ChunkData:
+	## Flat heightmap, grey biome, no resources/monuments for city mode.
+	var side := TerrainGenerator.VERTICES_PER_SIDE
+	data.heightmap = PackedFloat32Array()
+	data.heightmap.resize(side * side)
+	data.heightmap.fill(0.0)
+	# Grey asphalt biome grid
+	data.biome_grid = PackedByteArray()
+	data.biome_grid.resize(ChunkData.BIOME_GRID_SIDE * ChunkData.BIOME_GRID_SIDE)
+	data.biome_grid.fill(0)  # Will be overridden to grey in ChunkManager
+	data.water_level = -100.0  # No water
+	data.is_generated = true
+	return data
+
+
 func get_height_at(world_x: float, world_z: float) -> float:
 	## Returns terrain height at any world position.
 	assert(is_initialized, "WorldGenerator not initialized.")
+	if world_type == WorldType.CITY:
+		return 0.0
 	var n := _noise_height.get_noise_2d(world_x, world_z)
 	return (n + 1.0) * 0.5 * TerrainGenerator.HEIGHT_SCALE
 

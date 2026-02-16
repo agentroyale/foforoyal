@@ -6,6 +6,7 @@ extends Control
 const GAME_WORLD_PATH := "res://scenes/world/game_world.tscn"
 const SETTINGS_SCENE_PATH := "res://scenes/ui/settings_menu.tscn"
 const MULTIPLAYER_SCENE_PATH := "res://scenes/ui/multiplayer_menu.tscn"
+const CHARACTER_SELECT_PATH := "res://scenes/ui/character_select.tscn"
 const BG_TEXTURE_PATH := "res://assets/textures/ui/menu_background.png"
 
 @onready var button_container: VBoxContainer = %ButtonContainer
@@ -18,6 +19,7 @@ const BG_TEXTURE_PATH := "res://assets/textures/ui/menu_background.png"
 
 var _settings_instance: Control = null
 var _multiplayer_instance: Control = null
+var _char_select_instance: Control = null
 
 
 func _ready() -> void:
@@ -45,6 +47,27 @@ func _connect_buttons() -> void:
 
 
 func _on_play() -> void:
+	if _char_select_instance:
+		return
+	var cs_scene := load(CHARACTER_SELECT_PATH) as PackedScene
+	if not cs_scene:
+		push_warning("MainMenu: could not load character select scene")
+		return
+	_char_select_instance = cs_scene.instantiate()
+	_char_select_instance.back_pressed.connect(_on_char_select_back)
+	_char_select_instance.character_confirmed.connect(_on_char_confirmed)
+	add_child(_char_select_instance)
+	button_container.visible = false
+
+
+func _on_char_select_back() -> void:
+	if _char_select_instance:
+		_char_select_instance.queue_free()
+		_char_select_instance = null
+	button_container.visible = true
+
+
+func _on_char_confirmed(_id: String) -> void:
 	MatchManager.reset()
 	get_tree().change_scene_to_file(GAME_WORLD_PATH)
 

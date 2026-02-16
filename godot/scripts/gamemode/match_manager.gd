@@ -37,6 +37,12 @@ var _match_seed: int = 0
 
 func _ready() -> void:
 	NetworkManager.player_disconnected.connect(_on_player_disconnected)
+	# CLI shortcut: --br flag forces Battle Royale mode for testing
+	var all_args := OS.get_cmdline_args() + OS.get_cmdline_user_args()
+	for arg in all_args:
+		if arg == "--br":
+			game_mode = GameMode.BATTLE_ROYALE
+			break
 
 
 func _process(delta: float) -> void:

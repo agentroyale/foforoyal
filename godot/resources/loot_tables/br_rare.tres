@@ -1,7 +1,31 @@
-[gd_resource type="Resource" script_class="LootTable" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="LootTable" load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/gamemode/loot_table.gd" id="1_script"]
+[ext_resource type="Resource" path="res://resources/weapons/sawed_off.tres" id="sawed_off"]
+[ext_resource type="Resource" path="res://resources/weapons/bullpup.tres" id="bullpup"]
+[ext_resource type="Resource" path="res://resources/weapons/sniper_rifle.tres" id="sniper_rifle"]
+[ext_resource type="Resource" path="res://resources/weapons/bolt_action.tres" id="bolt_action"]
 
 [resource]
 script = ExtResource("1_script")
-entries = []
+entries = [{
+"item": ExtResource("sawed_off"),
+"weight": 1.0,
+"min_count": 1,
+"max_count": 1
+}, {
+"item": ExtResource("bullpup"),
+"weight": 1.0,
+"min_count": 1,
+"max_count": 1
+}, {
+"item": ExtResource("sniper_rifle"),
+"weight": 1.0,
+"min_count": 1,
+"max_count": 1
+}, {
+"item": ExtResource("bolt_action"),
+"weight": 1.0,
+"min_count": 1,
+"max_count": 1
+}]

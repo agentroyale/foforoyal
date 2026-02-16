@@ -15,6 +15,14 @@ const CROUCH_LERP_SPEED := 10.0
 const FALL_DAMAGE_THRESHOLD := 8.0
 const FALL_DAMAGE_MULTIPLIER := 10.0
 
+const CHARACTER_MODELS := {
+	"knight": "res://assets/kaykit/adventurers/Knight.glb",
+	"mage": "res://assets/kaykit/adventurers/Mage.glb",
+	"ranger": "res://assets/kaykit/adventurers/Ranger.glb",
+	"rogue": "res://assets/kaykit/adventurers/Rogue.glb",
+	"rogue_hooded": "res://assets/kaykit/adventurers/Rogue_Hooded.glb",
+}
+
 var is_crouching := false
 var current_speed := WALK_SPEED
 var _previous_velocity_y: float = 0.0
@@ -27,6 +35,7 @@ var movement_disabled: bool = false
 func _ready() -> void:
 	floor_max_angle = deg_to_rad(55.0)
 	_set_collision_height(STAND_HEIGHT)
+	_swap_player_model()
 	add_to_group("players")
 	_give_starter_weapon.call_deferred()
 	_init_crafting_queue.call_deferred()
@@ -43,40 +52,36 @@ func _give_starter_weapon() -> void:
 	var inv := get_node_or_null("PlayerInventory") as PlayerInventory
 	if not inv:
 		return
-	var w := WeaponData.new()
-	w.item_name = "Assault Rifle"
-	w.max_stack_size = 1
-	w.category = ItemData.Category.WEAPON
-	w.weapon_type = WeaponData.WeaponType.SMG
-	w.base_damage = 22.0
-	w.fire_rate = 0.1
-	w.max_range = 120.0
-	w.falloff_start = 60.0
-	w.magazine_size = 30
-	w.reload_time = 2.0
-	w.model_position_offset = Vector3.ZERO
-	w.model_rotation_offset = Vector3.ZERO
-	w.model_scale = 0.4
-	w.muzzle_offset = Vector3(2.92, 0.19, 0.0)
-	w.base_spread = 0.3
-	w.min_spread = 0.05
-	w.bloom_per_shot = 0.6
-	w.max_bloom = 4.0
-	w.bloom_decay_rate = 8.0
-	var rifle_scene := load("res://assets/weapons/AssaultRifle_1.fbx") as PackedScene
-	if rifle_scene:
-		w.weapon_mesh_scene = rifle_scene
-	var rifle_icon := load("res://assets/textures/icons/assault_rifle.png") as Texture2D
-	if rifle_icon:
-		w.icon = rifle_icon
-	var rp := RecoilPattern.new()
-	rp.offsets = [Vector2(0.1, 0.8), Vector2(-0.2, 1.0), Vector2(0.15, 0.9), Vector2(-0.1, 1.1)] as Array[Vector2]
-	rp.recovery_speed = 6.0
-	w.recoil_pattern = rp
+	var w := load("res://resources/weapons/assault_rifle.tres") as WeaponData
+	if not w:
+		return
 	inv.hotbar.add_item(w, 1)
 	var wc := get_node_or_null("WeaponController") as WeaponController
 	if wc:
 		wc.equip_weapon(w)
+
+
+func _swap_player_model() -> void:
+	if multiplayer.has_multiplayer_peer() and not is_multiplayer_authority():
+		return
+	var char_id := GameSettings.selected_character
+	if char_id == "barbarian" or char_id == "":
+		return
+	if char_id not in CHARACTER_MODELS:
+		return
+	var old_model := get_node_or_null("PlayerModel")
+	if not old_model:
+		return
+	var scene := load(CHARACTER_MODELS[char_id]) as PackedScene
+	if not scene:
+		return
+	remove_child(old_model)
+	old_model.queue_free()
+	var new_model := scene.instantiate()
+	new_model.name = "PlayerModel"
+	new_model.set_script(load("res://scripts/player/player_model.gd"))
+	add_child(new_model)
+	move_child(new_model, 1)
 
 
 func disable_movement() -> void:

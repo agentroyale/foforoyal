@@ -28,12 +28,16 @@ WeaponSfx="*res://scripts/audio/weapon_sfx.gd"
 CombatNetcode="*res://scripts/networking/combat_netcode.gd"
 MatchManager="*res://scripts/gamemode/match_manager.gd"
 NetworkMetrics="*res://scripts/networking/network_metrics.gd"
+MobileInput="*res://scripts/autoload/mobile_input.gd"
+MobilePerformance="*res://scripts/autoload/mobile_performance.gd"
 
 [display]
 
 window/size/viewport_width=1920
 window/size/viewport_height=1080
 window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=1
 
 [dotnet]
 

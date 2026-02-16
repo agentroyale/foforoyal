@@ -93,9 +93,15 @@ func close_inventory() -> void:
 		return
 	is_open = false
 	_tooltip_panel.visible = false
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if not _is_mobile():
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_tween_close()
 	closed.emit()
+
+
+func _is_mobile() -> bool:
+	var mi: Node = get_node_or_null("/root/MobileInput")
+	return mi != null and mi.is_mobile
 
 
 func _set_visible(show: bool) -> void:

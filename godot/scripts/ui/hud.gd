@@ -40,6 +40,7 @@ var _zone_warning_label: Label
 var _zone_timer_label: Label
 var _pickup_label: Label
 var _pickup_fade_timer: float = 0.0
+var _touch_controls: Control = null
 
 
 func _ready() -> void:
@@ -50,6 +51,7 @@ func _ready() -> void:
 	_connect_build_signals.call_deferred()
 	_connect_hotbar.call_deferred()
 	_setup_death_screen.call_deferred()
+	_setup_touch_controls.call_deferred()
 
 
 func _create_weapon_panel_style() -> void:
@@ -188,6 +190,16 @@ func _setup_death_screen() -> void:
 		_death_screen.respawn_requested.connect(_on_respawn_requested)
 
 
+func _setup_touch_controls() -> void:
+	var mi: Node = get_node_or_null("/root/MobileInput")
+	if not mi or not mi.is_mobile:
+		return
+	var scene := load("res://scenes/ui/touch_controls.tscn") as PackedScene
+	if scene:
+		_touch_controls = scene.instantiate()
+		add_child(_touch_controls)
+
+
 func _connect_build_signals() -> void:
 	var players := get_tree().get_nodes_in_group("players")
 	var player: Node = null
@@ -294,7 +306,7 @@ func _update_zone_ui() -> void:
 		return
 	# Zone timer
 	if _zone_timer_label:
-		var time_left := zc.get_time_until_shrink() if zc.has_method("get_time_until_shrink") else 0.0
+		var time_left: float = zc.get_time_until_shrink() if zc.has_method("get_time_until_shrink") else 0.0
 		if time_left > 0.0:
 			_zone_timer_label.text = "Zona: %ds" % ceili(time_left)
 			_zone_timer_label.visible = true

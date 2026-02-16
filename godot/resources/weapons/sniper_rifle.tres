@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/weapon_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/weapons/recoil_sniper.tres" id="2"]
+[ext_resource type="Texture2D" path="res://assets/textures/icons/sniper_rifle.png" id="icon_1"]
+[ext_resource type="PackedScene" path="res://assets/weapons/SniperRifle_1.fbx" id="mesh_1"]
+
+[resource]
+script = ExtResource("1")
+icon = ExtResource("icon_1")
+item_name = "Sniper Rifle"
+description = "Semi-auto sniper. High damage at extreme range."
+max_stack_size = 1
+category = 2
+weapon_type = 5
+base_damage = 55.0
+fire_rate = 1.5
+reload_time = 3.5
+magazine_size = 5
+max_range = 250.0
+falloff_start = 150.0
+ammo_type = 3
+recoil_pattern = ExtResource("2")
+weapon_mesh_scene = ExtResource("mesh_1")
+model_scale = 0.4
+muzzle_offset = Vector3(3.5, 0.2, 0.0)
+base_spread = 0.1
+min_spread = 0.01
+bloom_per_shot = 2.0
+max_bloom = 5.0
+bloom_decay_rate = 4.0

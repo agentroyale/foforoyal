@@ -1,7 +1,31 @@
-[gd_resource type="Resource" script_class="LootTable" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="LootTable" load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/gamemode/loot_table.gd" id="1_script"]
+[ext_resource type="Resource" path="res://resources/weapons/revolver.tres" id="revolver"]
+[ext_resource type="Resource" path="res://resources/weapons/mp5.tres" id="mp5"]
+[ext_resource type="Resource" path="res://resources/weapons/pump_shotgun.tres" id="pump_shotgun"]
+[ext_resource type="Resource" path="res://resources/weapons/assault_rifle.tres" id="assault_rifle"]
 
 [resource]
 script = ExtResource("1_script")
-entries = []
+entries = [{
+"item": ExtResource("revolver"),
+"weight": 1.0,
+"min_count": 1,
+"max_count": 1
+}, {
+"item": ExtResource("mp5"),
+"weight": 1.0,
+"min_count": 1,
+"max_count": 1
+}, {
+"item": ExtResource("pump_shotgun"),
+"weight": 1.0,
+"min_count": 1,
+"max_count": 1
+}, {
+"item": ExtResource("assault_rifle"),
+"weight": 1.0,
+"min_count": 1,
+"max_count": 1
+}]

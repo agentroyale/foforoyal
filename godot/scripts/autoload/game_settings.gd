@@ -18,9 +18,17 @@ var sfx_volume: float = 80.0
 ## Multiplayer
 var player_name: String = "Fofolete"
 
+## Character
+var selected_character: String = "barbarian"
+
 ## Display
 var fullscreen: bool = false
 var vsync: bool = true
+
+## Mobile
+var touch_sensitivity: float = 1.0
+var touch_opacity: float = 0.6
+var mobile_quality: int = 1  ## 0=Low, 1=Medium, 2=High
 
 
 func _ready() -> void:
@@ -39,10 +47,14 @@ func load_settings() -> void:
 	mouse_sensitivity = config.get_value("gameplay", "mouse_sensitivity", 1.0)
 	fov = config.get_value("gameplay", "fov", 75.0)
 	player_name = config.get_value("multiplayer", "player_name", "Fofolete")
+	selected_character = config.get_value("character", "selected", "barbarian")
 	master_volume = config.get_value("audio", "master_volume", 80.0)
 	sfx_volume = config.get_value("audio", "sfx_volume", 80.0)
 	fullscreen = config.get_value("display", "fullscreen", false)
 	vsync = config.get_value("display", "vsync", true)
+	touch_sensitivity = config.get_value("mobile", "touch_sensitivity", 1.0)
+	touch_opacity = config.get_value("mobile", "touch_opacity", 0.6)
+	mobile_quality = config.get_value("mobile", "mobile_quality", 1)
 
 
 func save_settings() -> void:
@@ -50,10 +62,14 @@ func save_settings() -> void:
 	config.set_value("gameplay", "mouse_sensitivity", mouse_sensitivity)
 	config.set_value("gameplay", "fov", fov)
 	config.set_value("multiplayer", "player_name", player_name)
+	config.set_value("character", "selected", selected_character)
 	config.set_value("audio", "master_volume", master_volume)
 	config.set_value("audio", "sfx_volume", sfx_volume)
 	config.set_value("display", "fullscreen", fullscreen)
 	config.set_value("display", "vsync", vsync)
+	config.set_value("mobile", "touch_sensitivity", touch_sensitivity)
+	config.set_value("mobile", "touch_opacity", touch_opacity)
+	config.set_value("mobile", "mobile_quality", mobile_quality)
 	config.save(CONFIG_PATH)
 
 

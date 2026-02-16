@@ -137,7 +137,9 @@ func request_fire(cam_origin: Vector3, cam_dir: Vector3, weapon_type: int,
 
 	# Perform hit detection based on weapon type
 	match weapon_type:
-		WeaponData.WeaponType.PISTOL, WeaponData.WeaponType.SMG:
+		WeaponData.WeaponType.PISTOL, WeaponData.WeaponType.SMG, \
+		WeaponData.WeaponType.AR, WeaponData.WeaponType.SHOTGUN, \
+		WeaponData.WeaponType.SNIPER:
 			_server_hitscan(sender_id, shooter, cam_origin, cam_dir, spread, timestamp)
 		WeaponData.WeaponType.MELEE:
 			_server_melee(sender_id, shooter, cam_origin, cam_dir)
@@ -347,6 +349,12 @@ func _replicate_fire_vfx(shooter_peer_id: int, muzzle_pos: Vector3,
 			WeaponSfx.play_auto()
 		WeaponData.WeaponType.PISTOL:
 			WeaponSfx.play_gunshot()
+		WeaponData.WeaponType.AR:
+			WeaponSfx.play_burst()
+		WeaponData.WeaponType.SHOTGUN:
+			WeaponSfx.play_shotgun()
+		WeaponData.WeaponType.SNIPER:
+			WeaponSfx.play_sniper()
 
 	# Spawn muzzle flash at shooter's muzzle
 	var dir := (end_point - muzzle_pos).normalized()

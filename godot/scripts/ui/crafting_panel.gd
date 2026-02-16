@@ -82,10 +82,15 @@ func close() -> void:
 		return
 	is_open = false
 	visible = false
-	# Only re-capture mouse if no other UI panel is open
-	if not _is_other_panel_open():
+	# Only re-capture mouse if no other UI panel is open (and not mobile)
+	if not _is_mobile() and not _is_other_panel_open():
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	panel_closed.emit()
+
+
+func _is_mobile() -> bool:
+	var mi: Node = get_node_or_null("/root/MobileInput")
+	return mi != null and mi.is_mobile
 
 
 func _is_other_panel_open() -> bool:

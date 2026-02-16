@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="RecoilPattern" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/recoil_pattern.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+offsets = [Vector2(0.15, 1.0), Vector2(-0.2, 0.9), Vector2(0.1, 1.1), Vector2(-0.15, 1.0), Vector2(0.2, 0.8), Vector2(-0.1, 1.2)]
+recovery_speed = 8.0

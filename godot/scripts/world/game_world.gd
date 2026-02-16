@@ -13,8 +13,9 @@ var _victory_screen: CanvasLayer = null
 func _ready() -> void:
 	$Player.set_physics_process(false)
 	var seed_val := _get_seed()
+	var wtype := WorldGenerator.WorldType.CITY if MatchManager.is_br_mode() else WorldGenerator.WorldType.TERRAIN
 	WorldGenerator.world_initialized.connect(_on_world_ready)
-	WorldGenerator.initialize(seed_val)
+	WorldGenerator.initialize(seed_val, wtype)
 	if MatchManager.is_br_mode():
 		_setup_br_systems()
 
@@ -90,12 +91,22 @@ func _on_world_ready(_seed: int) -> void:
 
 	var player := $Player as CharacterBody3D
 	if MatchManager.is_br_mode():
-		# In BR, player starts on lobby platform
-		var lobby := get_node_or_null("LobbyArea")
-		if lobby and lobby.has_method("get_spawn_position"):
-			player.global_position = lobby.get_spawn_position(0)
+		# CLI --br test: skip lobby, spawn on ground in city
+		var is_cli_br := false
+		var all_args := OS.get_cmdline_args() + OS.get_cmdline_user_args()
+		for arg in all_args:
+			if arg == "--br":
+				is_cli_br = true
+				break
+		if is_cli_br:
+			player.global_position = Vector3(spawn_x, 2.0, spawn_z)
 		else:
-			player.global_position = Vector3(512, 201, 512)
+			# Normal BR: player starts on lobby platform
+			var lobby := get_node_or_null("LobbyArea")
+			if lobby and lobby.has_method("get_spawn_position"):
+				player.global_position = lobby.get_spawn_position(0)
+			else:
+				player.global_position = Vector3(512, 201, 512)
 		player.velocity = Vector3.ZERO
 		player.set_physics_process(true)
 	else:

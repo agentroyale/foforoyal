@@ -85,6 +85,12 @@ func _fire(weapon: WeaponData) -> void:
 			WeaponSfx.play_auto()
 		WeaponData.WeaponType.PISTOL:
 			WeaponSfx.play_gunshot()
+		WeaponData.WeaponType.AR:
+			WeaponSfx.play_burst()
+		WeaponData.WeaponType.SHOTGUN:
+			WeaponSfx.play_shotgun()
+		WeaponData.WeaponType.SNIPER:
+			WeaponSfx.play_sniper()
 
 	if _is_multiplayer_active():
 		_fire_networked(weapon)
@@ -98,7 +104,9 @@ func _fire_local(weapon: WeaponData) -> void:
 			_do_melee(weapon)
 		WeaponData.WeaponType.BOW:
 			_spawn_projectile(weapon)
-		WeaponData.WeaponType.PISTOL, WeaponData.WeaponType.SMG:
+		WeaponData.WeaponType.PISTOL, WeaponData.WeaponType.SMG, \
+		WeaponData.WeaponType.AR, WeaponData.WeaponType.SHOTGUN, \
+		WeaponData.WeaponType.SNIPER:
 			_do_hitscan(weapon)
 
 
@@ -112,7 +120,9 @@ func _fire_networked(weapon: WeaponData) -> void:
 
 	# Local VFX (tracer/shell happen immediately for responsiveness)
 	match weapon.weapon_type:
-		WeaponData.WeaponType.PISTOL, WeaponData.WeaponType.SMG:
+		WeaponData.WeaponType.PISTOL, WeaponData.WeaponType.SMG, \
+		WeaponData.WeaponType.AR, WeaponData.WeaponType.SHOTGUN, \
+		WeaponData.WeaponType.SNIPER:
 			var dir := SpreadSystem.apply_spread_to_direction(cam_dir, _pending_shot_spread)
 			var end := cam_origin + dir * weapon.max_range
 			_spawn_tracer(_get_muzzle_position(), end)

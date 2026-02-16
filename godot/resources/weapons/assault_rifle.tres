@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/weapon_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/weapons/recoil_ar.tres" id="2"]
+[ext_resource type="Texture2D" path="res://assets/textures/icons/assault_rifle.png" id="icon_1"]
+[ext_resource type="PackedScene" path="res://assets/weapons/AssaultRifle_1.fbx" id="mesh_1"]
+
+[resource]
+script = ExtResource("1")
+icon = ExtResource("icon_1")
+item_name = "Assault Rifle"
+description = "Versatile automatic rifle. Good at all ranges."
+max_stack_size = 1
+category = 2
+weapon_type = 6
+base_damage = 22.0
+fire_rate = 0.1
+reload_time = 2.0
+magazine_size = 30
+max_range = 120.0
+falloff_start = 60.0
+ammo_type = 3
+recoil_pattern = ExtResource("2")
+weapon_mesh_scene = ExtResource("mesh_1")
+model_scale = 0.4
+muzzle_offset = Vector3(2.92, 0.19, 0.0)
+base_spread = 0.3
+min_spread = 0.05
+bloom_per_shot = 0.6
+max_bloom = 4.0
+bloom_decay_rate = 8.0

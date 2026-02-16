@@ -1,9 +1,9 @@
-[gd_resource type="Resource" script_class="WeaponData" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="WeaponData" load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/combat/weapon_data.gd" id="1"]
 [ext_resource type="Resource" path="res://resources/weapons/recoil_thompson.tres" id="2"]
-
 [ext_resource type="Texture2D" path="res://assets/textures/icons/thompson.png" id="icon_1"]
+[ext_resource type="PackedScene" path="res://assets/weapons/SubmachineGun_1.fbx" id="mesh_1"]
 
 [resource]
 script = ExtResource("1")
@@ -21,3 +21,11 @@ max_range = 100.0
 falloff_start = 40.0
 ammo_type = 2
 recoil_pattern = ExtResource("2")
+weapon_mesh_scene = ExtResource("mesh_1")
+model_scale = 0.4
+muzzle_offset = Vector3(2.8, 0.18, 0.0)
+base_spread = 0.5
+min_spread = 0.1
+bloom_per_shot = 0.4
+max_bloom = 4.0
+bloom_decay_rate = 6.0

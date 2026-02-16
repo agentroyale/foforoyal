@@ -58,6 +58,8 @@ const HILL_SCENES: Array[String] = [
 ]
 const HILLS_PER_CHUNK := 3  # Max hills per chunk
 
+const ASPHALT_COLOR := Color(0.35, 0.35, 0.38)  # Dark grey asphalt
+
 var _loaded_chunks: Dictionary = {}  # "cx_cz" -> {data: ChunkData, node: Node3D, lod: int}
 var _update_timer: float = 0.0
 var _terrain_material: ShaderMaterial
@@ -65,6 +67,7 @@ var _water_scene: PackedScene
 var _grass_meshes: Array[Mesh] = []
 var _bush_meshes: Array[Mesh] = []
 var _hill_scenes: Array[PackedScene] = []
+var _city_scene_cache: Dictionary = {}  # scene_name -> PackedScene
 
 
 func _ready() -> void:
@@ -211,18 +214,23 @@ func _load_chunk(cx: int, cz: int, lod: int) -> void:
 		col_body.add_child(col_shape)
 		chunk_node.add_child(col_body)
 
+	var is_city: bool = wg.world_type == WorldGenerator.WorldType.CITY
+
 	# Water plane — offset to center over terrain (PlaneMesh is origin-centered)
-	if _water_scene and data.water_level > 0.0:
+	if not is_city and _water_scene and data.water_level > 0.0:
 		var water := _water_scene.instantiate()
 		water.position = Vector3(CHUNK_SIZE / 2.0, data.water_level, CHUNK_SIZE / 2.0)
 		chunk_node.add_child(water)
 
 	# Resource nodes and vegetation (only LOD 0)
 	if lod == 0:
-		_spawn_resources(data, chunk_node)
-		_spawn_grass(data, chunk_node)
-		_spawn_bushes(data, chunk_node)
-		_spawn_hills(data, chunk_node)
+		if is_city:
+			_spawn_city_elements(cx, cz, chunk_node, wg)
+		else:
+			_spawn_resources(data, chunk_node)
+			_spawn_grass(data, chunk_node)
+			_spawn_bushes(data, chunk_node)
+			_spawn_hills(data, chunk_node)
 
 	add_child(chunk_node)
 
@@ -450,6 +458,13 @@ func _generate_biome_colors(data: ChunkData) -> PackedColorArray:
 	var colors := PackedColorArray()
 	var side := TerrainGenerator.VERTICES_PER_SIDE
 	colors.resize(side * side)
+
+	# City mode: all asphalt grey
+	var wg = get_node_or_null("/root/WorldGenerator")
+	if wg and wg.world_type == WorldGenerator.WorldType.CITY:
+		colors.fill(ASPHALT_COLOR)
+		return colors
+
 	var biome_colors := {
 		BiomeData.BiomeType.GRASSLAND: Color(0.35, 0.45, 0.25),
 		BiomeData.BiomeType.FOREST: Color(0.2, 0.35, 0.15),
@@ -540,3 +555,75 @@ func _get_hill_chance(biome: int) -> float:
 			return 0.55
 		_:
 			return 0.4
+
+
+func _spawn_city_elements(cx: int, cz: int, parent: Node3D, wg: Node) -> void:
+	## Instantiate city buildings, roads, cars, and props for this chunk.
+	var elements := CityGenerator.get_elements_in_chunk(wg._city_layout, cx, cz)
+	var chunk_origin := parent.position
+
+	# Road surface height: road model is 0.1 units thick * CITY_SCALE
+	var road_surface := 0.1 * CityGenerator.CITY_SCALE  # 0.5m
+
+	# Roads (with collision so player walks on road surface)
+	for elem in elements["roads"]:
+		_place_city_element(elem, chunk_origin, parent, true)
+
+	# Buildings (with collision)
+	for elem in elements["buildings"]:
+		_place_city_element(elem, chunk_origin, parent, true)
+
+	# Cars (with collision, raised to road surface)
+	for elem in elements["cars"]:
+		_place_city_element(elem, chunk_origin, parent, true, road_surface)
+
+	# Props (no collision, raised to road surface)
+	for elem in elements["props"]:
+		_place_city_element(elem, chunk_origin, parent, false, road_surface)
+
+
+func _place_city_element(elem: Dictionary, chunk_origin: Vector3, parent: Node3D, add_collision: bool, y_offset: float = 0.0) -> void:
+	var scene := _load_city_scene(elem["scene"])
+	if not scene:
+		return
+	var node := scene.instantiate()
+	var world_pos: Vector3 = elem["position"]
+	node.position = world_pos - chunk_origin
+	node.position.y = y_offset
+	node.rotation.y = elem["rotation_y"]
+	var s := CityGenerator.CITY_SCALE
+	node.scale = Vector3(s, s, s)
+	parent.add_child(node)
+
+	if add_collision:
+		_add_trimesh_collision(node)
+
+
+func _load_city_scene(scene_name: String) -> PackedScene:
+	if _city_scene_cache.has(scene_name):
+		return _city_scene_cache[scene_name]
+	var path := CityGenerator.get_scene_path(scene_name)
+	if not ResourceLoader.exists(path):
+		_city_scene_cache[scene_name] = null
+		return null
+	var scene := load(path) as PackedScene
+	_city_scene_cache[scene_name] = scene
+	return scene
+
+
+func _add_trimesh_collision(node: Node) -> void:
+	## Add trimesh collision to all MeshInstance3D children.
+	for child in node.get_children():
+		if child is MeshInstance3D and child.mesh:
+			var body := StaticBody3D.new()
+			body.name = "Collider"
+			var shape: ConcavePolygonShape3D = child.mesh.create_trimesh_shape()
+			if shape:
+				var col := CollisionShape3D.new()
+				col.shape = shape
+				body.add_child(col)
+				# Match the mesh transform
+				body.transform = child.transform
+				node.add_child(body)
+		elif child.get_child_count() > 0:
+			_add_trimesh_collision(child)

@@ -52,6 +52,8 @@ func _setup_skeleton_deferred() -> void:
 
 
 func _connect_combat_signals() -> void:
+	if not is_inside_tree():
+		return
 	var wc := get_parent().get_node_or_null("WeaponController") as WeaponController
 	if wc:
 		wc.weapon_fired.connect(_on_weapon_fired)
@@ -76,7 +78,9 @@ func _on_weapon_fired(weapon: WeaponData) -> void:
 
 func _on_weapon_reloaded(weapon: WeaponData) -> void:
 	match weapon.weapon_type:
-		WeaponData.WeaponType.PISTOL, WeaponData.WeaponType.SMG:
+		WeaponData.WeaponType.PISTOL, WeaponData.WeaponType.SMG, \
+		WeaponData.WeaponType.AR, WeaponData.WeaponType.SHOTGUN, \
+		WeaponData.WeaponType.SNIPER:
 			play_one_shot("ranged/Ranged_1H_Reload")
 		_:
 			play_one_shot("general/Use_Item")
@@ -129,6 +133,8 @@ func _process(delta: float) -> void:
 		var horizontal_speed := Vector2(vel.x, vel.z).length()
 		var has_ranged := _equipped_weapon_type in [
 			WeaponData.WeaponType.PISTOL, WeaponData.WeaponType.SMG,
+			WeaponData.WeaponType.AR, WeaponData.WeaponType.SHOTGUN,
+			WeaponData.WeaponType.SNIPER,
 		]
 		var has_bow := _equipped_weapon_type == WeaponData.WeaponType.BOW
 		var is_aiming := _is_player_aiming()
