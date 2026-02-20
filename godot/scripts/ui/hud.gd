@@ -165,25 +165,15 @@ func _connect_hotbar() -> void:
 		_slot_panels.append(panel)
 		_slot_icons.append(panel.get_node("VBox/Icon") as TextureRect)
 
-	# Find player inventory
-	var players := get_tree().get_nodes_in_group("players")
-	if players.is_empty():
-		# Fallback: find by node name
-		var player := get_parent().get_node_or_null("Player")
-		if player:
-			_player = player as CharacterBody3D
-			_player_inv = player.get_node_or_null("PlayerInventory") as PlayerInventory
-			_weapon_ctrl = player.get_node_or_null("WeaponController") as WeaponController
-			_camera = player.get_node_or_null("CameraPivot") as PlayerCamera
-			_health_system = player.get_node_or_null("HealthSystem") as HealthSystem
-			_stamina_system = player.get_node_or_null("StaminaSystem") as StaminaSystem
-	else:
-		_player = players[0] as CharacterBody3D
-		_player_inv = players[0].get_node_or_null("PlayerInventory") as PlayerInventory
-		_weapon_ctrl = players[0].get_node_or_null("WeaponController") as WeaponController
-		_camera = players[0].get_node_or_null("CameraPivot") as PlayerCamera
-		_health_system = players[0].get_node_or_null("HealthSystem") as HealthSystem
-		_stamina_system = players[0].get_node_or_null("StaminaSystem") as StaminaSystem
+	# Find local (authority) player
+	var local := _find_local_player()
+	if local:
+		_player = local
+		_player_inv = local.get_node_or_null("PlayerInventory") as PlayerInventory
+		_weapon_ctrl = local.get_node_or_null("WeaponController") as WeaponController
+		_camera = local.get_node_or_null("CameraPivot") as PlayerCamera
+		_health_system = local.get_node_or_null("HealthSystem") as HealthSystem
+		_stamina_system = local.get_node_or_null("StaminaSystem") as StaminaSystem
 
 	if _player_inv:
 		_player_inv.active_slot_changed.connect(_on_active_slot_changed)
@@ -192,12 +182,14 @@ func _connect_hotbar() -> void:
 		_refresh_hotbar()
 
 	# Interaction ray
-	_interaction_ray = _player.get_node_or_null("CameraPivot/InteractionRay") as PlayerInteraction
+	if _player:
+		_interaction_ray = _player.get_node_or_null("CameraPivot/InteractionRay") as PlayerInteraction
 	if _interaction_ray:
 		_interaction_ray.interaction_target_changed.connect(_on_interaction_target_changed)
 
 	# Item use system
-	_item_use_system = _player.get_node_or_null("ItemUseSystem") as ItemUseSystem
+	if _player:
+		_item_use_system = _player.get_node_or_null("ItemUseSystem") as ItemUseSystem
 	if _item_use_system:
 		_item_use_system.use_started.connect(_on_use_started)
 		_item_use_system.use_progress.connect(_on_use_progress)
@@ -243,12 +235,7 @@ func _setup_touch_controls() -> void:
 
 
 func _connect_build_signals() -> void:
-	var players := get_tree().get_nodes_in_group("players")
-	var player: Node = null
-	if not players.is_empty():
-		player = players[0]
-	else:
-		player = get_parent().get_node_or_null("Player")
+	var player: Node = _find_local_player()
 	if not player:
 		return
 	var placer := player.get_node_or_null("BuildingPlacer") as BuildingPlacer
@@ -508,3 +495,11 @@ func _update_stability_display() -> void:
 		stability_label.visible = true
 	else:
 		stability_label.visible = false
+
+
+func _find_local_player() -> CharacterBody3D:
+	for p in get_tree().get_nodes_in_group("players"):
+		if p is CharacterBody3D:
+			if not multiplayer.has_multiplayer_peer() or p.is_multiplayer_authority():
+				return p as CharacterBody3D
+	return null

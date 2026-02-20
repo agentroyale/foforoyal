@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3 uid="uid://bplayer001"]
+[gd_scene load_steps=19 format=3 uid="uid://bplayer001"]
 
 [ext_resource type="Script" path="res://scripts/player/player_controller.gd" id="1_controller"]
 [ext_resource type="Script" path="res://scripts/player/player_camera.gd" id="2_camera"]
@@ -16,6 +16,7 @@
 [ext_resource type="Script" path="res://scripts/networking/network_sync.gd" id="14_netsync"]
 [ext_resource type="Script" path="res://scripts/player/parachute_controller.gd" id="15_parachute"]
 [ext_resource type="Script" path="res://scripts/items/item_use_system.gd" id="16_itemuse"]
+[ext_resource type="Script" path="res://scripts/debug/model_adjust.gd" id="17_madjust"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_001"]
 height = 1.8
@@ -84,3 +85,6 @@ script = ExtResource("15_parachute")
 
 [node name="ItemUseSystem" type="Node" parent="."]
 script = ExtResource("16_itemuse")
+
+[node name="ModelAdjust" type="Node" parent="."]
+script = ExtResource("17_madjust")

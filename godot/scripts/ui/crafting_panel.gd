@@ -404,16 +404,19 @@ func _load_recipes() -> void:
 
 
 func _find_player() -> void:
-	var players := get_tree().get_nodes_in_group("players")
-	if players.is_empty():
-		# Fallback: sibling Player node
-		var player := get_parent().get_node_or_null("Player")
-		if player:
-			_player_inv = player.get_node_or_null("PlayerInventory") as PlayerInventory
-			_crafting_queue = player.get_node_or_null("CraftingQueue") as CraftingQueue
-	else:
-		_player_inv = players[0].get_node_or_null("PlayerInventory") as PlayerInventory
-		_crafting_queue = players[0].get_node_or_null("CraftingQueue") as CraftingQueue
+	var local: Node = null
+	for p in get_tree().get_nodes_in_group("players"):
+		if p is CharacterBody3D:
+			if not multiplayer.has_multiplayer_peer() or p.is_multiplayer_authority():
+				local = p
+				break
+	if not local:
+		var players := get_tree().get_nodes_in_group("players")
+		if not players.is_empty():
+			local = players[0]
+	if local:
+		_player_inv = local.get_node_or_null("PlayerInventory") as PlayerInventory
+		_crafting_queue = local.get_node_or_null("CraftingQueue") as CraftingQueue
 
 	if _crafting_queue:
 		_crafting_queue.queue_changed.connect(_on_queue_changed)

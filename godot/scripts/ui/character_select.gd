@@ -11,6 +11,14 @@ const CHARACTERS := [
 	{"id": "ranger", "name": "Arqueiro", "glb": "res://assets/kaykit/adventurers/Ranger.glb", "desc": "Especialista em combate a distancia", "color": Color(0.2, 0.7, 0.3)},
 	{"id": "rogue", "name": "Ladino", "glb": "res://assets/kaykit/adventurers/Rogue.glb", "desc": "Agil e furtivo", "color": Color(0.8, 0.6, 0.2)},
 	{"id": "rogue_hooded", "name": "Encapuzado", "glb": "res://assets/kaykit/adventurers/Rogue_Hooded.glb", "desc": "Misterioso e letal", "color": Color(0.4, 0.4, 0.5)},
+	{"id": "pepe", "name": "Pepe", "glb": "res://assets/kaykit/adventurers/Pepe.glb", "desc": "O sapo lendario", "color": Color(0.3, 0.7, 0.2)},
+	{"id": "camofrog", "name": "CamoFrog", "glb": "res://assets/kaykit/adventurers/CamoFrog.glb", "desc": "Sapo soldado camuflado", "color": Color(0.3, 0.5, 0.2)},
+	{"id": "camofrog_s", "name": "CamoFrog HD", "glb": "res://assets/soldier/CamoFrog_Soldier.glb", "desc": "Sapo soldado (soldier rig)", "color": Color(0.2, 0.6, 0.3)},
+	{"id": "frogcommando", "name": "Frog Commando", "glb": "res://assets/kaykit/adventurers/FrogCommando.glb", "desc": "Sapo comando (KayKit rig)", "color": Color(0.2, 0.5, 0.3)},
+	{"id": "bandolier", "name": "Bandolier Ranger", "glb": "res://assets/kaykit/adventurers/BandolierRanger.glb", "desc": "Ranger com bandoleira", "color": Color(0.5, 0.35, 0.2)},
+	{"id": "brett", "name": "Brett", "glb": "res://assets/kaykit/adventurers/Brett.glb", "desc": "O mascote azul da Base", "color": Color(0.2, 0.4, 0.9)},
+	{"id": "pepe_new", "name": "Pepe HD", "glb": "res://assets/kaykit/adventurers/PepeNew.glb", "desc": "Pepe em alta definicao", "color": Color(0.2, 0.8, 0.2)},
+	{"id": "elonzin", "name": "Elonzin", "glb": "res://assets/kaykit/adventurers/Elonzin.glb", "desc": "O magnata espacial", "color": Color(0.7, 0.7, 0.8)},
 ]
 
 const IDLE_ANIM_LIB := "res://assets/kaykit/adventurers/Rig_Medium_General.glb"
@@ -248,6 +256,17 @@ func _setup_preview_anim() -> void:
 	_anim_player = AnimationPlayer.new()
 	_current_model.add_child(_anim_player)
 
+	# Check if this is a soldier rig (B-spine bone present)
+	var skel := _find_skeleton(_current_model)
+	var is_soldier := skel and skel.find_bone("B-spine") >= 0
+
+	if is_soldier:
+		_setup_soldier_preview_anim()
+	else:
+		_setup_kaykit_preview_anim()
+
+
+func _setup_kaykit_preview_anim() -> void:
 	var anim_scene := load(IDLE_ANIM_LIB) as PackedScene
 	if not anim_scene:
 		return
@@ -263,9 +282,41 @@ func _setup_preview_anim() -> void:
 			_anim_player.add_animation_library("general", dup)
 			break
 	inst.free()
-
 	if _anim_player.has_animation("general/Idle_A"):
 		_anim_player.play("general/Idle_A")
+
+
+func _setup_soldier_preview_anim() -> void:
+	var soldier_idle_path := "res://assets/soldier/soldier_locomotion.glb"
+	if not ResourceLoader.exists(soldier_idle_path):
+		return
+	var anim_scene := load(soldier_idle_path) as PackedScene
+	if not anim_scene:
+		return
+	var inst := anim_scene.instantiate()
+	var src: AnimationPlayer = _find_anim_player(inst)
+	if src:
+		for lib_name in src.get_animation_library_list():
+			var lib := src.get_animation_library(lib_name)
+			var dup := lib.duplicate(true) as AnimationLibrary
+			var idle := dup.get_animation("Idle01")
+			if idle:
+				idle.loop_mode = Animation.LOOP_LINEAR
+			_anim_player.add_animation_library("locomotion", dup)
+			break
+	inst.free()
+	if _anim_player.has_animation("locomotion/Idle01"):
+		_anim_player.play("locomotion/Idle01")
+
+
+func _find_skeleton(node: Node) -> Skeleton3D:
+	if node is Skeleton3D:
+		return node
+	for child in node.get_children():
+		var result := _find_skeleton(child)
+		if result:
+			return result
+	return null
 
 
 func _update_thumb_selection() -> void:

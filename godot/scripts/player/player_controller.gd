@@ -21,7 +21,17 @@ const CHARACTER_MODELS := {
 	"ranger": "res://assets/kaykit/adventurers/Ranger.glb",
 	"rogue": "res://assets/kaykit/adventurers/Rogue.glb",
 	"rogue_hooded": "res://assets/kaykit/adventurers/Rogue_Hooded.glb",
+	"pepe": "res://assets/kaykit/adventurers/Pepe.glb",
+	"meshy": "res://assets/kaykit/adventurers/MeshyBiped.glb",
+	"camofrog": "res://assets/kaykit/adventurers/CamoFrog.glb",
+	"camofrog_s": "res://assets/soldier/CamoFrog_Soldier.glb",
+	"frogcommando": "res://assets/kaykit/adventurers/FrogCommando.glb",
+	"bandolier": "res://assets/kaykit/adventurers/BandolierRanger.glb",
+	"brett": "res://assets/kaykit/adventurers/Brett.glb",
+	"pepe_new": "res://assets/kaykit/adventurers/PepeNew.glb",
+	"elonzin": "res://assets/kaykit/adventurers/Elonzin.glb",
 }
+
 
 var is_crouching := false
 var current_speed := WALK_SPEED
@@ -37,8 +47,10 @@ func _ready() -> void:
 	_set_collision_height(STAND_HEIGHT)
 	_swap_player_model()
 	add_to_group("players")
-	_give_starter_weapon.call_deferred()
-	_init_crafting_queue.call_deferred()
+	# Only give weapons/init crafting for local player
+	if not multiplayer.has_multiplayer_peer() or is_multiplayer_authority():
+		_give_starter_weapon.call_deferred()
+		_init_crafting_queue.call_deferred()
 
 
 func _init_crafting_queue() -> void:
@@ -80,6 +92,7 @@ func _swap_player_model() -> void:
 	var new_model := scene.instantiate()
 	new_model.name = "PlayerModel"
 	new_model.set_script(load("res://scripts/player/player_model.gd"))
+	print("[PlayerController] Swapped model to '%s'" % char_id)
 	add_child(new_model)
 	move_child(new_model, 1)
 
@@ -194,4 +207,4 @@ func _set_collision_height(height: float) -> void:
 	var shape: CapsuleShape3D = collision_shape.shape
 	shape.height = height
 	collision_shape.position.y = height * 0.5
-	camera_pivot.position.y = height * 0.5 - 0.1
+	camera_pivot.position.y = 1.8 if height >= STAND_HEIGHT else 1.1

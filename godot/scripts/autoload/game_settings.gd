@@ -6,6 +6,7 @@ extends Node
 signal settings_changed
 
 const CONFIG_PATH := "user://settings.cfg"
+const GAME_VERSION := "0.1.0"
 
 ## Gameplay
 var mouse_sensitivity: float = 1.0
@@ -20,6 +21,9 @@ var player_name: String = "Fofolete"
 
 ## Character
 var selected_character: String = "barbarian"
+
+## Model overrides (per-character scale/offset/rotation, set via F9 ModelAdjust)
+var model_overrides: Dictionary = {}
 
 ## Display
 var fullscreen: bool = false
@@ -56,6 +60,21 @@ func load_settings() -> void:
 	touch_opacity = config.get_value("mobile", "touch_opacity", 0.6)
 	mobile_quality = config.get_value("mobile", "mobile_quality", 1)
 
+	# Load per-character model overrides (sections like [model_camofrog_s])
+	model_overrides = {}
+	var sections: PackedStringArray = config.get_sections()
+	for i in sections.size():
+		var section: String = sections[i]
+		if section.begins_with("model_"):
+			var char_id := section.substr(6)
+			model_overrides[char_id] = {
+				"scale": config.get_value(section, "scale", 1.0),
+				"offset": config.get_value(section, "offset", Vector3.ZERO),
+				"rot_x": config.get_value(section, "rot_x", 0.0),
+				"rot_y": config.get_value(section, "rot_y", 0.0),
+				"rot_z": config.get_value(section, "rot_z", 0.0),
+			}
+
 
 func save_settings() -> void:
 	var config := ConfigFile.new()
@@ -70,7 +89,29 @@ func save_settings() -> void:
 	config.set_value("mobile", "touch_sensitivity", touch_sensitivity)
 	config.set_value("mobile", "touch_opacity", touch_opacity)
 	config.set_value("mobile", "mobile_quality", mobile_quality)
+
+	# Save per-character model overrides
+	var override_keys: Array = model_overrides.keys()
+	for i in override_keys.size():
+		var cid: String = override_keys[i]
+		var data: Dictionary = model_overrides[cid]
+		var section: String = "model_" + cid
+		config.set_value(section, "scale", data.get("scale", 1.0))
+		config.set_value(section, "offset", data.get("offset", Vector3.ZERO))
+		config.set_value(section, "rot_x", data.get("rot_x", 0.0))
+		config.set_value(section, "rot_y", data.get("rot_y", 0.0))
+		config.set_value(section, "rot_z", data.get("rot_z", 0.0))
+
 	config.save(CONFIG_PATH)
+
+
+func get_model_override(char_id: String) -> Dictionary:
+	return model_overrides.get(char_id, {})
+
+
+func set_model_override(char_id: String, data: Dictionary) -> void:
+	model_overrides[char_id] = data
+	save_settings()
 
 
 func apply_all() -> void:

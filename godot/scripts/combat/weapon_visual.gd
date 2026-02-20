@@ -4,6 +4,9 @@ extends RefCounted
 ## with a MuzzlePoint marker for projectile/hitscan origin.
 
 const HAND_BONE := "handslot.r"
+const HAND_BONE_SOLDIER := "B-hand.R"
+const HAND_BONE_ALT := "RightHand"
+const HAND_BONE_MIXAMO := "mixamorig_RightHand"
 
 var _bone_attachment: BoneAttachment3D
 var _muzzle_marker: Marker3D
@@ -16,13 +19,23 @@ func setup(skeleton: Skeleton3D, weapon: WeaponData) -> void:
 		push_warning("WeaponVisual: no skeleton")
 		return
 
-	var bone_idx := skeleton.find_bone(HAND_BONE)
+	var bone_name := HAND_BONE
+	var bone_idx := skeleton.find_bone(bone_name)
 	if bone_idx < 0:
-		push_warning("WeaponVisual: bone '%s' not found" % HAND_BONE)
+		bone_name = HAND_BONE_SOLDIER
+		bone_idx = skeleton.find_bone(bone_name)
+	if bone_idx < 0:
+		bone_name = HAND_BONE_ALT
+		bone_idx = skeleton.find_bone(bone_name)
+	if bone_idx < 0:
+		bone_name = HAND_BONE_MIXAMO
+		bone_idx = skeleton.find_bone(bone_name)
+	if bone_idx < 0:
+		push_warning("WeaponVisual: no hand bone found")
 		return
 
 	_bone_attachment = BoneAttachment3D.new()
-	_bone_attachment.bone_name = HAND_BONE
+	_bone_attachment.bone_name = bone_name
 	skeleton.add_child(_bone_attachment)
 
 	if weapon.weapon_mesh_scene:

@@ -29,6 +29,12 @@ func _ready() -> void:
 
 
 func _find_player() -> void:
+	for p in get_tree().get_nodes_in_group("players"):
+		if p is CharacterBody3D:
+			if not multiplayer.has_multiplayer_peer() or p.is_multiplayer_authority():
+				_player = p as CharacterBody3D
+				return
+	# Fallback: first player in group
 	var players := get_tree().get_nodes_in_group("players")
 	if not players.is_empty():
 		_player = players[0] as CharacterBody3D

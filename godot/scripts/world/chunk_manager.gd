@@ -92,16 +92,23 @@ func _process(delta: float) -> void:
 		return
 	_update_timer = UPDATE_INTERVAL
 
-	# Find the local player position
+	# Find player positions to load chunks around
 	var players := get_tree().get_nodes_in_group("players") if is_inside_tree() else []
 	if players.is_empty():
 		return
 
-	# In singleplayer or on server, update for all players
-	for player in players:
-		if player is CharacterBody3D:
-			update_chunks(player.global_position)
-			break  # For now, single-viewpoint updates
+	if multiplayer.is_server():
+		# Server: load chunks around ALL players for collision/raycasts
+		for player in players:
+			if player is CharacterBody3D:
+				update_chunks(player.global_position)
+	else:
+		# Client or singleplayer: load chunks around local authority player only
+		for player in players:
+			if player is CharacterBody3D:
+				if not multiplayer.has_multiplayer_peer() or player.is_multiplayer_authority():
+					update_chunks(player.global_position)
+					break
 
 
 func update_chunks(player_position: Vector3) -> void:

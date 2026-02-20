@@ -55,7 +55,7 @@ func _ready() -> void:
 	if not player.is_multiplayer_authority():
 		_interpolation = NetworkInterpolation.new()
 		_interpolation.name = "NetworkInterpolation"
-		player.add_child(_interpolation)
+		player.add_child.call_deferred(_interpolation)
 		# Disable physics for remote players (interpolation handles movement)
 		player.set_physics_process(false)
 

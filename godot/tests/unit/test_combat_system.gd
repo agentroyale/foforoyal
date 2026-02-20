@@ -54,6 +54,7 @@ func _make_health_system(hp: float = 100.0) -> HealthSystem:
 	hs.max_hp = hp
 	add_child_autofree(hs)
 	hs.current_hp = hp
+	hs._spawn_protection = 0.0  # Disable for tests
 	return hs
 
 

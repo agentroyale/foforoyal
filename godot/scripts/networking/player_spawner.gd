@@ -70,5 +70,12 @@ func _get_spawn_position(peer_id: int) -> Vector3:
 		if lobby and lobby.has_method("get_spawn_position"):
 			var idx := MatchManager.alive_players.size()
 			return lobby.get_spawn_position(idx)
-	var idx := peer_id % _spawn_points.size()
-	return _spawn_points[idx]
+	# Spawn near map center where terrain actually exists
+	var center := float(WorldGenerator.MAP_SIZE) / 2.0
+	var offset_x := float((peer_id * 7) % 20) - 10.0
+	var offset_z := float((peer_id * 13) % 20) - 10.0
+	var x := center + 16.0 + offset_x
+	var z := center + 16.0 + offset_z
+	var height := WorldGenerator.get_height_at(x, z)
+	var safe_y := maxf(height, 0.0) + 2.0
+	return Vector3(x, safe_y, z)

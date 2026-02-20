@@ -1,0 +1,2382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Character Editor Royale</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg-dark: #0a0a0f; --panel-bg: #111118; --panel-border: #2a2a35;
+            --accent: #c4a84a; --text: #e0ddd5; --text-dim: #888;
+            --hover: #1a1a25; --success: #4a9e4a; --button-bg: #1e1e2a;
+            --danger: #c44a4a;
+        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg-dark); color: var(--text); overflow: hidden; height: 100vh; }
+        #app { display: flex; flex-direction: column; height: 100vh; }
+        header { background: var(--panel-bg); border-bottom: 2px solid var(--accent); padding: 0.8rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
+        h1 { font-size: 1.4rem; font-weight: 600; letter-spacing: 0.5px; color: var(--accent); }
+        .version { color: var(--text-dim); font-size: 0.85rem; }
+        main { display: flex; flex: 1; overflow: hidden; flex-direction: column; }
+        .main-content { display: flex; flex: 1; overflow: hidden; }
+        #viewport { flex: 1; position: relative; background: linear-gradient(180deg, #0d0d15 0%, #0a0a0f 100%); }
+        canvas { display: block; width: 100%; height: 100%; }
+        #sidebar { width: 340px; background: var(--panel-bg); border-left: 1px solid var(--panel-border); overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }
+        #sidebar::-webkit-scrollbar { width: 8px; }
+        #sidebar::-webkit-scrollbar-track { background: var(--panel-bg); }
+        #sidebar::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 4px; }
+        #sidebar::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+        .tab-bar { display: flex; border-bottom: 1px solid var(--panel-border); flex-shrink: 0; }
+        .tab { flex: 1; padding: 0.7rem; text-align: center; background: var(--panel-bg); border: none; color: var(--text-dim); font-size: 0.8rem; font-weight: 600; letter-spacing: 1px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+        .tab:hover { color: var(--text); background: var(--hover); }
+        .tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+        .tab.disabled { opacity: 0.4; cursor: not-allowed; }
+        .panels-wrap { flex: 1; overflow-y: auto; }
+        .panel { padding: 1.2rem; border-bottom: 1px solid var(--panel-border); }
+        .panel-title { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.8rem; color: var(--accent); display: flex; align-items: center; gap: 0.5rem; }
+        .drop-zone { border: 2px dashed var(--panel-border); border-radius: 8px; padding: 1.5rem 1rem; text-align: center; cursor: pointer; transition: all 0.3s; background: var(--hover); }
+        .drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); background: rgba(196,168,74,0.1); }
+        .drop-zone-icon { font-size: 2rem; margin-bottom: 0.5rem; opacity: 0.6; }
+        .drop-zone-text { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.8rem; }
+        .btn { background: var(--button-bg); color: var(--text); border: 1px solid var(--panel-border); padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; font-family: inherit; }
+        .btn:hover { border-color: var(--accent); background: var(--hover); }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-primary { background: var(--accent); color: #0a0a0f; font-weight: 600; border-color: var(--accent); }
+        .btn-primary:hover { background: #d4b85a; border-color: #d4b85a; }
+        .btn-primary:disabled { background: #666; border-color: #666; }
+        .btn-small { padding: 0.35rem 0.7rem; font-size: 0.8rem; }
+        .btn-danger { border-color: var(--danger); color: var(--danger); }
+        .btn-danger:hover { background: rgba(196,74,74,0.2); }
+        .control-group { margin-bottom: 1rem; }
+        .control-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem; font-size: 0.85rem; color: var(--text-dim); }
+        .control-value { color: var(--accent); font-weight: 600; min-width: 50px; text-align: right; font-family: 'Courier New', monospace; font-size: 0.8rem; }
+        input[type="range"] { width: 100%; height: 4px; border-radius: 2px; background: var(--panel-border); outline: none; -webkit-appearance: none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); cursor: pointer; }
+        input[type="number"] { background: var(--hover); border: 1px solid var(--panel-border); color: var(--text); padding: 0.25rem 0.4rem; border-radius: 4px; width: 65px; font-size: 0.8rem; font-family: 'Courier New', monospace; }
+        input[type="number"]:focus { outline: none; border-color: var(--accent); }
+        .button-group { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.4rem; }
+        .button-group-3 { grid-template-columns: repeat(3, 1fr); }
+        .button-group-4 { grid-template-columns: repeat(4, 1fr); }
+        .checkbox-group { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.6rem; cursor: pointer; user-select: none; }
+        .checkbox-group input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); }
+        .checkbox-group label { cursor: pointer; font-size: 0.85rem; }
+        footer { background: var(--panel-bg); border-top: 1px solid var(--panel-border); padding: 0.6rem 1.5rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: var(--text-dim); }
+        .status-item { display: flex; align-items: center; gap: 0.4rem; }
+        .status-value { color: var(--accent); font-family: 'Courier New', monospace; }
+        /* Modal */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10,10,15,0.9); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-overlay.active { display: flex; }
+        .modal { background: var(--panel-bg); border: 1px solid var(--accent); border-radius: 8px; width: 90%; max-width: 900px; max-height: 85vh; display: flex; flex-direction: column; }
+        .modal-header { padding: 1.2rem; border-bottom: 1px solid var(--panel-border); display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h2 { color: var(--accent); font-size: 1.1rem; }
+        .modal-close { background: none; border: none; color: var(--text); font-size: 1.5rem; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 4px; }
+        .modal-close:hover { background: var(--hover); color: var(--accent); }
+        .modal-body { padding: 1.2rem; overflow-y: auto; flex: 1; }
+        .modal-footer { padding: 1.2rem; border-top: 1px solid var(--panel-border); display: flex; gap: 0.8rem; justify-content: flex-end; }
+        .code-block { background: #0a0a0f; border: 1px solid var(--panel-border); border-radius: 4px; padding: 1rem; overflow-x: auto; margin-bottom: 1rem; }
+        .code-block pre { color: var(--text); font-family: 'Courier New', monospace; font-size: 0.8rem; line-height: 1.5; margin: 0; }
+        .code-keyword { color: #c678dd; } .code-string { color: #98c379; } .code-number { color: #d19a66; } .code-comment { color: #5c6370; font-style: italic; } .code-function { color: #61afef; }
+        .instruction-box { background: rgba(74,158,74,0.1); border: 1px solid var(--success); border-radius: 4px; padding: 0.8rem; margin-bottom: 0.8rem; }
+        .instruction-box p { margin: 0; font-size: 0.85rem; line-height: 1.5; }
+        .instruction-box code { background: rgba(0,0,0,0.3); padding: 0.15rem 0.4rem; border-radius: 3px; font-family: 'Courier New', monospace; color: var(--accent); }
+        .info-box { background: rgba(196,168,74,0.1); border: 1px solid var(--accent); border-radius: 4px; padding: 0.8rem; margin-bottom: 0.8rem; font-size: 0.85rem; line-height: 1.5; }
+        .file-input { display: none; }
+        .loaded-model-info { background: var(--hover); border-radius: 4px; padding: 0.6rem; margin-bottom: 0.8rem; font-size: 0.8rem; display: none; }
+        .loaded-model-info.active { display: block; }
+        .loaded-model-info p { margin: 0.2rem 0; color: var(--text-dim); }
+        .loaded-model-info strong { color: var(--accent); }
+        .tooltip { position: absolute; background: rgba(17,17,24,0.95); border: 1px solid var(--accent); border-radius: 4px; padding: 0.4rem 0.6rem; font-size: 0.8rem; pointer-events: none; z-index: 100; display: none; white-space: nowrap; }
+        .tooltip.active { display: block; }
+        .loading-spinner { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); color: var(--accent); font-size: 1.1rem; display: none; }
+        .loading-spinner.active { display: block; }
+        /* Progress overlay */
+        .progress-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(17,17,24,0.95); border: 1px solid var(--accent); border-radius: 8px; padding: 1.5rem 2rem; text-align: center; z-index: 50; min-width: 300px; }
+        .progress-text { color: var(--accent); margin-bottom: 0.8rem; font-size: 0.9rem; }
+        .progress-container { background: var(--panel-border); border-radius: 4px; height: 8px; overflow: hidden; }
+        .progress-fill { background: var(--accent); height: 100%; width: 0%; transition: width 0.1s; border-radius: 4px; }
+        /* Bone list */
+        .bone-list { max-height: 300px; overflow-y: auto; border: 1px solid var(--panel-border); border-radius: 4px; }
+        .bone-item { padding: 0.35rem 0.6rem; font-size: 0.8rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(42,42,53,0.5); font-family: 'Courier New', monospace; }
+        .bone-item:hover { background: var(--hover); }
+        .bone-item.active { background: rgba(196,168,74,0.15); color: var(--accent); font-weight: 600; }
+        .bone-item .bone-weight { font-size: 0.7rem; color: var(--text-dim); }
+        /* Brush mode buttons */
+        .brush-modes { display: flex; gap: 0.3rem; }
+        .brush-mode-btn { flex: 1; padding: 0.35rem; text-align: center; background: var(--button-bg); border: 1px solid var(--panel-border); border-radius: 4px; color: var(--text-dim); cursor: pointer; font-size: 0.75rem; font-family: inherit; transition: all 0.2s; }
+        .brush-mode-btn:hover { border-color: var(--accent); }
+        .brush-mode-btn.active { background: var(--accent); color: #0a0a0f; border-color: var(--accent); font-weight: 600; }
+        /* Timeline */
+        .timeline-bar { background: var(--panel-bg); border-top: 1px solid var(--panel-border); padding: 0.4rem 1rem; display: flex; align-items: center; gap: 0.5rem; display: none; }
+        .timeline-bar input[type="range"] { flex: 1; }
+        .timeline-bar .time-display { font-family: 'Courier New', monospace; font-size: 0.8rem; color: var(--accent); min-width: 50px; }
+        .timeline-bar select { background: var(--button-bg); border: 1px solid var(--panel-border); color: var(--text); padding: 0.2rem; border-radius: 4px; font-size: 0.75rem; }
+        /* Rig status */
+        .rig-status { background: var(--hover); border-radius: 4px; padding: 0.5rem; font-size: 0.8rem; color: var(--text-dim); margin-top: 0.5rem; display: none; }
+        .rig-status.active { display: block; }
+        .rig-status.success { color: var(--success); }
+        .rig-status.error { color: var(--danger); }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>CHARACTER EDITOR ROYALE</h1>
+            <span class="version">v3.0.0</span>
+        </header>
+        <main>
+            <div class="main-content">
+                <div id="viewport">
+                    <div class="loading-spinner" id="loading">Loading...</div>
+                    <div class="tooltip" id="tooltip"></div>
+                    <div class="progress-overlay" id="rigProgress" style="display:none">
+                        <div class="progress-text" id="rigProgressText">Auto-rigging...</div>
+                        <div class="progress-container"><div class="progress-fill" id="rigProgressFill"></div></div>
+                    </div>
+                </div>
+                <aside id="sidebar">
+                    <div class="tab-bar">
+                        <button class="tab active" data-tab="setup" id="setupTab">SETUP</button>
+                        <button class="tab disabled" data-tab="paint" id="paintTab">PAINT</button>
+                    </div>
+                    <div class="panels-wrap" id="setupPanels">
+                        <!-- MODEL -->
+                        <div class="panel">
+                            <div class="panel-title">MODEL</div>
+                            <div class="drop-zone" id="dropZone">
+                                <div class="drop-zone-icon">&#128230;</div>
+                                <div class="drop-zone-text">Drag & Drop GLB file</div>
+                                <button class="btn btn-small" onclick="document.getElementById('fileInput').click()">Browse</button>
+                            </div>
+                            <input type="file" id="fileInput" class="file-input" accept=".glb,.gltf">
+                            <div class="control-group" style="margin-top:0.8rem">
+                                <div class="control-label"><span>Skeleton Type</span></div>
+                                <div class="button-group">
+                                    <button class="btn btn-small btn-primary" id="skelKaykit" data-skel="kaykit">KayKit</button>
+                                    <button class="btn btn-small" id="skelSoldier" data-skel="soldier">Soldier</button>
+                                </div>
+                            </div>
+                            <div class="loaded-model-info" id="modelInfo">
+                                <p><strong>File:</strong> <span id="modelFileName">-</span></p>
+                                <p><strong>Verts:</strong> <span id="modelVerts">-</span> | <strong>Tris:</strong> <span id="modelTris">-</span></p>
+                                <p><strong>Height:</strong> <span id="modelHeight">-</span></p>
+                            </div>
+                        </div>
+                        <!-- TRANSFORM -->
+                        <div class="panel">
+                            <div class="panel-title">TRANSFORM</div>
+                            <div class="control-group">
+                                <div class="control-label"><span>Scale</span><input type="number" id="scaleInput" min="0.1" max="5" step="0.01" value="1.0"></div>
+                                <input type="range" id="scaleSlider" min="0.1" max="5" step="0.01" value="1.0">
+                            </div>
+                            <div class="control-group">
+                                <div class="control-label"><span>Height (Y)</span><input type="number" id="heightInput" min="-1" max="2" step="0.01" value="0"></div>
+                                <input type="range" id="heightSlider" min="-1" max="2" step="0.01" value="0">
+                            </div>
+                            <div class="control-group">
+                                <div class="control-label"><span>Rotation Y</span><input type="number" id="rotationInput" min="-180" max="180" step="1" value="0"></div>
+                                <input type="range" id="rotationSlider" min="-180" max="180" step="1" value="0">
+                            </div>
+                            <div class="control-group">
+                                <div class="control-label"><span>Offset X</span><input type="number" id="offsetXInput" min="-1" max="1" step="0.01" value="0"></div>
+                                <input type="range" id="offsetXSlider" min="-1" max="1" step="0.01" value="0">
+                            </div>
+                            <div class="control-group">
+                                <div class="control-label"><span>Offset Z</span><input type="number" id="offsetZInput" min="-1" max="1" step="0.01" value="0"></div>
+                                <input type="range" id="offsetZSlider" min="-1" max="1" step="0.01" value="0">
+                            </div>
+                        </div>
+                        <!-- ARM T-POSE -->
+                        <div class="panel">
+                            <div class="panel-title">ARM T-POSE</div>
+                            <div class="control-group">
+                                <div class="control-label"><span>Left Arm</span><input type="number" id="armLeftInput" min="-90" max="90" step="1" value="0"></div>
+                                <input type="range" id="armLeftSlider" min="-90" max="90" step="1" value="0">
+                            </div>
+                            <div class="control-group">
+                                <div class="control-label"><span>Right Arm</span><input type="number" id="armRightInput" min="-90" max="90" step="1" value="0"></div>
+                                <input type="range" id="armRightSlider" min="-90" max="90" step="1" value="0">
+                            </div>
+                            <button class="btn" id="autoTPoseBtn" style="width:100%">Auto T-Pose</button>
+                        </div>
+                        <!-- AUTO-RIG -->
+                        <div class="panel">
+                            <div class="panel-title">AUTO-RIG</div>
+                            <button class="btn btn-primary" id="autoRigBtn" style="width:100%" disabled>Auto-Rig Model</button>
+                            <div class="rig-status" id="rigStatus"></div>
+                        </div>
+                        <!-- PREVIEW -->
+                        <div class="panel">
+                            <div class="panel-title">PREVIEW</div>
+                            <div class="button-group button-group-4" style="margin-bottom:0.8rem">
+                                <button class="btn btn-small" data-anim="idle">Idle</button>
+                                <button class="btn btn-small" data-anim="run">Run</button>
+                                <button class="btn btn-small" data-anim="walk">Walk</button>
+                                <button class="btn btn-small" data-anim="shoot">Shoot</button>
+                            </div>
+                            <div class="checkbox-group"><input type="checkbox" id="showSkeleton" checked><label for="showSkeleton">Skeleton</label></div>
+                            <div class="checkbox-group"><input type="checkbox" id="showBoneMarkers" checked><label for="showBoneMarkers">Bone Markers</label></div>
+                            <div class="checkbox-group"><input type="checkbox" id="wireframeMode"><label for="wireframeMode">Wireframe</label></div>
+                            <div class="checkbox-group"><input type="checkbox" id="showReference" checked><label for="showReference">Reference Model</label></div>
+                        </div>
+                        <!-- WEIGHT ZONES -->
+                        <div class="panel">
+                            <div class="panel-title">WEIGHT ZONES</div>
+                            <div class="control-group">
+                                <div class="control-label"><span>Head Cutoff</span><span class="control-value" id="headCutoffValue">1.22</span></div>
+                                <input type="range" id="headCutoffSlider" min="0.5" max="2.0" step="0.01" value="1.22">
+                            </div>
+                            <div class="control-group">
+                                <div class="control-label"><span>Arm Width</span><span class="control-value" id="armWidthValue">0.17</span></div>
+                                <input type="range" id="armWidthSlider" min="0.1" max="0.5" step="0.01" value="0.17">
+                            </div>
+                            <div class="checkbox-group"><input type="checkbox" id="showWeightZones" checked><label for="showWeightZones">Show Zones</label></div>
+                        </div>
+                        <!-- CAMERA -->
+                        <div class="panel">
+                            <div class="panel-title">CAMERA</div>
+                            <div class="button-group button-group-4">
+                                <button class="btn btn-small" data-camera="front">Front</button>
+                                <button class="btn btn-small" data-camera="side">Side</button>
+                                <button class="btn btn-small" data-camera="top">Top</button>
+                                <button class="btn btn-small" data-camera="tps">TPS</button>
+                            </div>
+                        </div>
+                        <!-- EXPORT -->
+                        <div class="panel">
+                            <div class="panel-title">EXPORT</div>
+                            <div class="info-box" id="exportInfo">
+                                <strong>Skeleton:</strong> <span id="exportSkelType">KayKit (Chibi)</span><br>
+                                <strong>Output:</strong> <code id="exportPath">godot/assets/kaykit/adventurers/</code>
+                            </div>
+                            <div class="button-group" style="margin-bottom:0.5rem">
+                                <button class="btn" id="exportBtn">Blender Script</button>
+                                <button class="btn btn-primary" id="exportGlbBtn" disabled>Export GLB</button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- PAINT PANELS -->
+                    <div class="panels-wrap" id="paintPanels" style="display:none">
+                        <!-- BONE LIST -->
+                        <div class="panel">
+                            <div class="panel-title">BONE LIST</div>
+                            <div class="bone-list" id="boneList"></div>
+                        </div>
+                        <!-- BRUSH -->
+                        <div class="panel">
+                            <div class="panel-title">BRUSH</div>
+                            <div class="control-group">
+                                <div class="control-label"><span>Size</span><span class="control-value" id="brushSizeValue">0.08</span></div>
+                                <input type="range" id="brushSizeSlider" min="0.01" max="0.3" step="0.005" value="0.08">
+                            </div>
+                            <div class="control-group">
+                                <div class="control-label"><span>Intensity</span><span class="control-value" id="brushIntensityValue">0.30</span></div>
+                                <input type="range" id="brushIntensitySlider" min="0" max="1" step="0.05" value="0.3">
+                            </div>
+                            <div class="control-label" style="margin-bottom:0.4rem"><span>Mode</span></div>
+                            <div class="brush-modes">
+                                <button class="brush-mode-btn active" id="brushModeAdd" data-mode="add">Add</button>
+                                <button class="brush-mode-btn" id="brushModeSub" data-mode="subtract">Sub</button>
+                                <button class="brush-mode-btn" id="brushModeSmooth" data-mode="smooth">Smooth</button>
+                            </div>
+                        </div>
+                        <!-- PROBLEMS -->
+                        <div class="panel">
+                            <div class="panel-title">PROBLEMS <span id="problemCount" style="color:var(--danger);margin-left:auto"></span></div>
+                            <div class="button-group">
+                                <button class="btn btn-small" id="scanProblemsBtn">Scan</button>
+                                <button class="btn btn-small btn-danger" id="autoFixBtn" disabled>Auto-Fix</button>
+                            </div>
+                        </div>
+                        <!-- DISPLAY -->
+                        <div class="panel">
+                            <div class="panel-title">DISPLAY</div>
+                            <div class="checkbox-group"><input type="checkbox" id="showSkeletonPaint" checked><label for="showSkeletonPaint">Skeleton</label></div>
+                            <div class="checkbox-group"><input type="checkbox" id="wireframePaint"><label for="wireframePaint">Wireframe</label></div>
+                        </div>
+                        <!-- UNDO -->
+                        <div class="panel">
+                            <div class="panel-title">HISTORY</div>
+                            <div class="button-group">
+                                <button class="btn btn-small" id="undoBtn" disabled>Undo (<span id="undoCount">0</span>)</button>
+                                <button class="btn btn-small" id="redoBtn" disabled>Redo (<span id="redoCount">0</span>)</button>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+            <!-- Timeline -->
+            <div class="timeline-bar" id="timelineBar">
+                <button class="btn btn-small" id="timelinePlay">&#9654;</button>
+                <input type="range" id="timelineScrubber" min="0" max="1" step="0.001" value="0">
+                <span class="time-display" id="timelineTime">0.00s</span>
+                <button class="btn btn-small" id="timelinePrev">&lt;</button>
+                <button class="btn btn-small" id="timelineNext">&gt;</button>
+                <select id="timelineSpeed">
+                    <option value="0.25">0.25x</option>
+                    <option value="0.5">0.5x</option>
+                    <option value="1" selected>1x</option>
+                    <option value="2">2x</option>
+                </select>
+            </div>
+        </main>
+        <footer>
+            <div style="display:flex;gap:2rem">
+                <div class="status-item"><span>Status:</span><span class="status-value" id="statusText">Ready</span></div>
+                <div class="status-item"><span>Verts:</span><span class="status-value" id="statusVerts">-</span></div>
+                <div class="status-item"><span>Height:</span><span class="status-value" id="statusHeight">-</span></div>
+                <div class="status-item"><span>Scale:</span><span class="status-value" id="statusScale">1.0</span></div>
+            </div>
+            <div>Tab=mode | []=brush | Ctrl+Z/Y=undo | Space=play</div>
+        </footer>
+    </div>
+    <!-- Export Modal -->
+    <div class="modal-overlay" id="exportModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Blender Rigging Script</h2>
+                <button class="modal-close" onclick="document.getElementById('exportModal').classList.remove('active')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="instruction-box">
+                    <p><strong>Run:</strong> <code>blender --background --python script.py</code></p>
+                </div>
+                <div class="code-block"><pre id="exportCode"></pre></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" id="copyCodeBtn">Copy</button>
+                <button class="btn btn-primary" id="downloadCodeBtn">Download .py</button>
+            </div>
+        </div>
+    </div>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module">
+
+        // ===== IMPORTS =====
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+        import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+
+        // ===== CONSTANTS =====
+        const TARGET_HEIGHT = 2.3;
+        const KAYKIT_ARM_LENGTH = 0.69;
+
+        // ===== STATE =====
+        const state = {
+            scene: null, camera: null, renderer: null, controls: null,
+            referenceModel: null, referenceSkeleton: null, referenceSkeletonHelper: null,
+            refSkinnedMesh: null,
+            boneMarkers: [], heightGuides: null, weightZones: null,
+            userModel: null, userModelMesh: null, userModelFile: null,
+            mixer: null, currentAnimation: null,
+            skeletonType: 'kaykit',
+            transforms: { scale: 1.0, height: 0.0, rotation: 0.0, offsetX: 0.0, offsetZ: 0.0, armLeft: 0.0, armRight: 0.0, headCutoff: 1.22, armWidth: 0.17 },
+            modelStats: { vertices: 0, triangles: 0, height: 0, filename: '' },
+            animations: { idle: null, run: null, walk: null, shoot: null },
+            mode: 'setup',
+            rig: {
+                boneData: {}, boneNames: [], boneOrder: {},
+                skinnedMesh: null, skeleton: null, isRigged: false,
+                adjacency: null, leftArm: new Set(), rightArm: new Set(),
+                processedPositions: null, vertCount: 0, originalMaterials: [],
+                rigContainer: null,
+            },
+            weightPaint: {
+                active: false, activeBone: null, activeBoneIndex: -1,
+                brushSize: 0.08, brushIntensity: 0.3, brushMode: 'add',
+                brushCursor: null, fullWeights: null, isPainting: false,
+                heatmapMaterial: null, originalMaterial: null,
+            },
+            history: { undoStack: [], redoStack: [], maxSize: 50 },
+            timeline: { playing: false, mixer: null, currentTime: 0, duration: 0, speed: 1.0 },
+            problems: { vertices: [], overlay: null },
+        };
+
+        const loader = new GLTFLoader();
+        const clock = new THREE.Clock();
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        // ===== SCENE SETUP =====
+        function init() {
+            const viewport = document.getElementById('viewport');
+            state.scene = new THREE.Scene();
+            state.scene.background = new THREE.Color(0x0d0d15);
+            state.camera = new THREE.PerspectiveCamera(50, viewport.clientWidth / viewport.clientHeight, 0.1, 1000);
+            state.camera.position.set(3, 1.5, 3);
+            state.renderer = new THREE.WebGLRenderer({ antialias: true });
+            state.renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+            state.renderer.setPixelRatio(window.devicePixelRatio);
+            state.renderer.shadowMap.enabled = true;
+            viewport.appendChild(state.renderer.domElement);
+            state.controls = new OrbitControls(state.camera, state.renderer.domElement);
+            state.controls.target.set(0, 1, 0);
+            state.controls.enableDamping = true;
+            state.controls.dampingFactor = 0.05;
+            state.controls.update();
+            // Lights
+            state.scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+            const keyLight = new THREE.DirectionalLight(0xfff5e6, 1.2);
+            keyLight.position.set(5, 8, 5); keyLight.castShadow = true;
+            state.scene.add(keyLight);
+            const fillLight = new THREE.DirectionalLight(0xe6f2ff, 0.4);
+            fillLight.position.set(-5, 3, -2);
+            state.scene.add(fillLight);
+            const rimLight = new THREE.DirectionalLight(0xffffff, 0.6);
+            rimLight.position.set(0, 3, -5);
+            state.scene.add(rimLight);
+            state.scene.add(new THREE.GridHelper(20, 40, 0x2a2a35, 0x1a1a25));
+            createHeightGuides();
+            updateWeightZoneVisuals();
+            createBrushCursor();
+            loadReferenceModel();
+            loadAnimations();
+            animate();
+            updateStatus('Ready');
+        }
+
+        function createHeightGuides() {
+            const heights = [
+                { y: 0.5, color: 0x444444, label: '0.5m' }, { y: 1.0, color: 0x666666, label: '1.0m' },
+                { y: 1.5, color: 0x888888, label: '1.5m' }, { y: 1.8, color: 0xc4a84a, label: '1.8m' },
+                { y: 2.0, color: 0x666666, label: '2.0m' }, { y: 2.3, color: 0x4488ff, label: '2.3m' }
+            ];
+            const group = new THREE.Group(); group.name = 'HeightGuides';
+            heights.forEach(({ y, color, label }) => {
+                const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-1.5, y, 0), new THREE.Vector3(1.5, y, 0)]);
+                group.add(new THREE.Line(geo, new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.4 })));
+                const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
+                canvas.width = 128; canvas.height = 32;
+                ctx.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
+                ctx.font = '20px monospace'; ctx.fillText(label, 10, 22);
+                const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true, opacity: 0.6 }));
+                sprite.position.set(1.7, y, 0); sprite.scale.set(0.4, 0.1, 1);
+                group.add(sprite);
+            });
+            state.heightGuides = group;
+            state.scene.add(group);
+        }
+
+        function updateWeightZoneVisuals() {
+            if (state.weightZones) { state.scene.remove(state.weightZones); state.weightZones = null; }
+            const group = new THREE.Group(); group.name = 'WeightZones';
+            const hc = state.transforms.headCutoff, aw = state.transforms.armWidth;
+            const disc = new THREE.Mesh(new THREE.CircleGeometry(0.5, 32), new THREE.MeshBasicMaterial({ color: 0xff6633, transparent: true, opacity: 0.25, side: THREE.DoubleSide }));
+            disc.rotation.x = -Math.PI / 2; disc.position.y = hc; group.add(disc);
+            for (const sign of [1, -1]) {
+                const plane = new THREE.Mesh(new THREE.PlaneGeometry(0.01, 2.4), new THREE.MeshBasicMaterial({ color: 0x4488ff, transparent: true, opacity: 0.25, side: THREE.DoubleSide }));
+                plane.position.set(sign * aw, 1.2, 0); group.add(plane);
+            }
+            state.weightZones = group;
+            state.scene.add(group);
+            const cb = document.getElementById('showWeightZones');
+            if (cb) group.visible = cb.checked;
+        }
+
+        function createBrushCursor() {
+            const geo = new THREE.SphereGeometry(1, 16, 16);
+            const mat = new THREE.MeshBasicMaterial({ color: 0xff4444, transparent: true, opacity: 0.25, depthTest: false });
+            state.weightPaint.brushCursor = new THREE.Mesh(geo, mat);
+            state.weightPaint.brushCursor.visible = false;
+            state.scene.add(state.weightPaint.brushCursor);
+        }
+
+        // ===== ASSET LOADING =====
+        function extractBoneData(scene) {
+            let skeleton = null;
+            scene.traverse(child => {
+                if (child.isSkinnedMesh && !skeleton) {
+                    skeleton = child.skeleton;
+                    state.refSkinnedMesh = child;
+                }
+            });
+            if (!skeleton) return;
+            const boneData = {};
+            const boneNames = [];
+            const boneOrder = {};
+            skeleton.bones.forEach((bone, i) => {
+                const head = new THREE.Vector3();
+                bone.getWorldPosition(head);
+                let tail = head.clone();
+                const childBones = bone.children.filter(c => c.isBone);
+                if (childBones.length > 0) {
+                    childBones[0].getWorldPosition(tail);
+                } else {
+                    // Leaf bone: extend in parent direction
+                    if (bone.parent && bone.parent.isBone) {
+                        const parentPos = new THREE.Vector3();
+                        bone.parent.getWorldPosition(parentPos);
+                        const dir = head.clone().sub(parentPos).normalize().multiplyScalar(0.05);
+                        tail = head.clone().add(dir);
+                    }
+                }
+                boneData[bone.name] = { head: head.clone(), tail: tail.clone() };
+                boneNames.push(bone.name);
+                boneOrder[bone.name] = i;
+            });
+            state.rig.boneData = boneData;
+            state.rig.boneNames = boneNames;
+            state.rig.boneOrder = boneOrder;
+            // Compute actual arm length from skeleton bones
+            if (boneData['upperarm.l'] && boneData['handslot.l']) {
+                state.rig.armLength = boneData['upperarm.l'].head.distanceTo(boneData['handslot.l'].head);
+                console.log('Actual arm length from skeleton:', state.rig.armLength);
+            }
+            console.log(`Extracted ${boneNames.length} bones:`, boneNames);
+        }
+
+        function loadReferenceModel() {
+            updateStatus('Loading reference...');
+            showLoading(true);
+            const modelPath = state.skeletonType === 'kaykit'
+                ? '../../godot/assets/kaykit/adventurers/Knight.glb'
+                : '../../godot/assets/soldier/soldier_locomotion.glb';
+            loader.load(modelPath, (gltf) => {
+                state.referenceModel = gltf.scene;
+                state.scene.add(state.referenceModel);
+                // Extract bone data before making wireframe
+                state.referenceModel.updateMatrixWorld(true);
+                extractBoneData(gltf.scene);
+                // Make reference wireframe
+                state.referenceModel.traverse(child => {
+                    if (child.isMesh) {
+                        child.material = new THREE.MeshBasicMaterial({ color: 0x4488ff, wireframe: true, transparent: true, opacity: 0.3 });
+                    }
+                });
+                // Skeleton helper
+                // Measure actual reference model height for auto-rig scaling
+                const refBbox = new THREE.Box3().setFromObject(gltf.scene);
+                state.rig.refHeight = refBbox.max.y - refBbox.min.y;
+                console.log('Reference model actual height:', state.rig.refHeight);
+
+                state.referenceSkeletonHelper = new THREE.SkeletonHelper(gltf.scene);
+                state.referenceSkeletonHelper.material.color.set(0xffaa00);
+                state.scene.add(state.referenceSkeletonHelper);
+                createBoneMarkers();
+                if (gltf.animations && gltf.animations.length > 0) {
+                    state.mixer = new THREE.AnimationMixer(gltf.scene);
+                }
+                showLoading(false);
+                updateStatus('Reference loaded');
+            }, undefined, (error) => {
+                console.error('Error loading reference:', error);
+                showLoading(false);
+                updateStatus('Error loading reference - serve from project root');
+            });
+        }
+
+        function loadAnimations() {
+            state.animations = { idle: null, run: null, walk: null, shoot: null };
+            if (state.skeletonType === 'kaykit') {
+                const files = [
+                    { path: '../../godot/assets/kaykit/adventurers/Rig_Medium_General.glb' },
+                    { path: '../../godot/assets/kaykit/adventurers/Rig_Medium_MovementBasic.glb' },
+                    { path: '../../godot/assets/kaykit/adventurers/Rig_Medium_CombatRanged.glb' }
+                ];
+                files.forEach(f => {
+                    loader.load(f.path, (gltf) => {
+                        if (!gltf.animations) return;
+                        gltf.animations.forEach(clip => {
+                            const n = clip.name.toLowerCase();
+                            if (n.includes('idle_a')) state.animations.idle = clip;
+                            else if (n.includes('running_a')) state.animations.run = clip;
+                            else if (n.includes('walking_a')) state.animations.walk = clip;
+                            else if (n.includes('ranged_1h_shoot')) state.animations.shoot = clip;
+                        });
+                    }, undefined, () => {});
+                });
+            }
+        }
+
+        function createBoneMarkers() {
+            if (!state.referenceModel) return;
+            const geo = new THREE.SphereGeometry(0.02, 8, 8);
+            const mat = new THREE.MeshBasicMaterial({ color: 0xff4444 });
+            state.referenceModel.traverse(child => {
+                if (child.isBone) {
+                    const marker = new THREE.Mesh(geo, mat);
+                    child.add(marker);
+                    state.boneMarkers.push({ mesh: marker, bone: child });
+                }
+            });
+        }
+
+        function loadUserModel(file) {
+            if (state.userModel) { state.scene.remove(state.userModel); state.userModel = null; state.userModelMesh = null; }
+            // Reset rig state
+            if (state.rig.rigContainer) { state.scene.remove(state.rig.rigContainer); state.rig.rigContainer = null; }
+            state.rig.isRigged = false;
+            state.rig.skinnedMesh = null;
+            state.rig.skeleton = null;
+            document.getElementById('exportGlbBtn').disabled = true;
+            document.getElementById('paintTab').classList.add('disabled');
+            if (state.mode === 'paint') switchMode('setup');
+
+            state.userModelFile = file;
+            updateStatus('Loading model...');
+            showLoading(true);
+            const url = URL.createObjectURL(file);
+            loader.load(url, (gltf) => {
+                state.userModel = gltf.scene;
+                state.scene.add(state.userModel);
+                let vertices = 0, triangles = 0;
+                const bbox = new THREE.Box3();
+                state.userModel.traverse(child => {
+                    if (child.isMesh) {
+                        if (!state.userModelMesh) state.userModelMesh = child;
+                        const g = child.geometry;
+                        if (g) {
+                            vertices += g.attributes.position ? g.attributes.position.count : 0;
+                            triangles += g.index ? g.index.count / 3 : vertices / 3;
+                        }
+                    }
+                });
+                bbox.setFromObject(state.userModel);
+                const height = bbox.max.y - bbox.min.y;
+                state.modelStats = { vertices, triangles: Math.floor(triangles), height: height.toFixed(2), filename: file.name };
+                const center = new THREE.Vector3();
+                bbox.getCenter(center);
+                state.userModel.position.sub(center);
+                state.userModel.position.y += height / 2;
+                const targetH = state.skeletonType === 'kaykit' ? 2.3 : 1.82;
+                const suggested = (targetH / height).toFixed(2);
+                if (Math.abs(suggested - 1.0) > 0.1) updateStatus(`Suggested scale: ${suggested}`);
+                updateModelInfo();
+                applyTransforms();
+                document.getElementById('autoRigBtn').disabled = false;
+                showLoading(false);
+                URL.revokeObjectURL(url);
+            }, undefined, (error) => {
+                console.error('Error loading model:', error);
+                showLoading(false);
+                updateStatus('Error loading model');
+                URL.revokeObjectURL(url);
+            });
+        }
+
+        function applyTransforms() {
+            if (!state.userModel) return;
+            const t = state.transforms;
+            state.userModel.scale.set(t.scale, t.scale, t.scale);
+            state.userModel.position.set(t.offsetX, t.height, t.offsetZ);
+            state.userModel.rotation.y = t.rotation * Math.PI / 180;
+        }
+
+        function updateModelInfo() {
+            document.getElementById('modelInfo').classList.add('active');
+            document.getElementById('modelFileName').textContent = state.modelStats.filename;
+            document.getElementById('modelVerts').textContent = state.modelStats.vertices.toLocaleString();
+            document.getElementById('modelTris').textContent = state.modelStats.triangles.toLocaleString();
+            document.getElementById('modelHeight').textContent = state.modelStats.height + ' units';
+            document.getElementById('statusVerts').textContent = state.modelStats.vertices.toLocaleString();
+            document.getElementById('statusHeight').textContent = state.modelStats.height;
+        }
+
+        function updateStatus(text) { document.getElementById('statusText').textContent = text; }
+        function showLoading(show) { document.getElementById('loading').classList.toggle('active', show); }
+
+        function playAnimation(name) {
+            const mixer = state.rig.isRigged ? state.timeline.mixer : state.mixer;
+            const clip = state.animations[name];
+            if (!mixer || !clip) return;
+            if (state.currentAnimation) state.currentAnimation.stop();
+            state.currentAnimation = mixer.clipAction(clip);
+            state.currentAnimation.reset().play();
+            state.timeline.duration = clip.duration;
+            const scrubber = document.getElementById('timelineScrubber');
+            if (scrubber) scrubber.max = clip.duration;
+        }
+
+        function moveCameraTo(position, target, duration = 800) {
+            const startPos = state.camera.position.clone();
+            const startTarget = state.controls.target.clone();
+            const endPos = new THREE.Vector3(...position);
+            const endTarget = new THREE.Vector3(...target);
+            const startTime = Date.now();
+            (function anim() {
+                const t = Math.min((Date.now() - startTime) / duration, 1);
+                const e = 1 - Math.pow(1 - t, 3);
+                state.camera.position.lerpVectors(startPos, endPos, e);
+                state.controls.target.lerpVectors(startTarget, endTarget, e);
+                state.controls.update();
+                if (t < 1) requestAnimationFrame(anim);
+            })();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+            if (state.mixer) state.mixer.update(delta);
+            if (state.timeline.mixer && state.timeline.playing) {
+                state.timeline.mixer.update(delta * state.timeline.speed);
+                // Update scrubber
+                if (state.currentAnimation) {
+                    state.timeline.currentTime = state.currentAnimation.time;
+                    const scrubber = document.getElementById('timelineScrubber');
+                    const timeDisplay = document.getElementById('timelineTime');
+                    if (scrubber) scrubber.value = state.timeline.currentTime;
+                    if (timeDisplay) timeDisplay.textContent = state.timeline.currentTime.toFixed(2) + 's';
+                }
+            }
+            state.controls.update();
+            state.renderer.render(state.scene, state.camera);
+        }
+
+
+        // ===== AUTO-RIG ENGINE =====
+
+        function segDist(p, a, b) {
+            const ab = b.clone().sub(a);
+            const sq = ab.dot(ab);
+            if (sq < 1e-10) return p.distanceTo(a);
+            const t = Math.max(0, Math.min(1, p.clone().sub(a).dot(ab) / sq));
+            return p.distanceTo(a.clone().add(ab.multiplyScalar(t)));
+        }
+
+        function buildAdjacency(geometry) {
+            const adj = new Map();
+            const vertCount = geometry.attributes.position.count;
+            for (let i = 0; i < vertCount; i++) adj.set(i, new Set());
+            const index = geometry.index;
+            if (index) {
+                const arr = index.array;
+                for (let i = 0; i < arr.length; i += 3) {
+                    const a = arr[i], b = arr[i+1], c = arr[i+2];
+                    adj.get(a).add(b); adj.get(a).add(c);
+                    adj.get(b).add(a); adj.get(b).add(c);
+                    adj.get(c).add(a); adj.get(c).add(b);
+                }
+            } else {
+                for (let i = 0; i < vertCount; i += 3) {
+                    const a = i, b = i+1, c = i+2;
+                    if (c < vertCount) {
+                        adj.get(a).add(b); adj.get(a).add(c);
+                        adj.get(b).add(a); adj.get(b).add(c);
+                        adj.get(c).add(a); adj.get(c).add(b);
+                    }
+                }
+            }
+            return adj;
+        }
+
+        function collectAndMergeGeometry(model, transforms) {
+            const geometries = [];
+            const materials = [];
+            // Get geometry in model-local space (strip parent editor transforms)
+            // so scaleAndCenterGeometry handles scaling to TARGET_HEIGHT cleanly
+            model.updateMatrixWorld(true);
+            const modelWorldInv = model.matrixWorld.clone().invert();
+            model.traverse(child => {
+                if (!child.isMesh) return;
+                const geom = child.geometry.clone();
+                // Transform to model-local space (removes editor scale/pos/rot)
+                const localMat = new THREE.Matrix4().multiplyMatrices(modelWorldInv, child.matrixWorld);
+                geom.applyMatrix4(localMat);
+                // Only apply rotation from editor (user may have rotated to fix facing)
+                if (transforms.rotation !== 0) {
+                    geom.applyMatrix4(new THREE.Matrix4().makeRotationY(transforms.rotation * Math.PI / 180));
+                }
+                geometries.push(geom);
+                materials.push(child.material.clone ? child.material.clone() : child.material);
+            });
+            if (geometries.length === 0) return null;
+            // Merge all geometries
+            let merged;
+            if (geometries.length === 1) {
+                merged = geometries[0];
+            } else {
+                // Manual merge: combine position, normal, uv buffers
+                let totalVerts = 0, totalIdx = 0;
+                geometries.forEach(g => {
+                    totalVerts += g.attributes.position.count;
+                    totalIdx += g.index ? g.index.count : g.attributes.position.count;
+                });
+                const pos = new Float32Array(totalVerts * 3);
+                const norm = new Float32Array(totalVerts * 3);
+                const idx = new Uint32Array(totalIdx);
+                let vOff = 0, iOff = 0, vBase = 0;
+                geometries.forEach(g => {
+                    const gPos = g.attributes.position.array;
+                    pos.set(gPos, vOff * 3);
+                    if (g.attributes.normal) norm.set(g.attributes.normal.array, vOff * 3);
+                    if (g.index) {
+                        for (let i = 0; i < g.index.count; i++) idx[iOff + i] = g.index.array[i] + vBase;
+                        iOff += g.index.count;
+                    } else {
+                        for (let i = 0; i < g.attributes.position.count; i++) idx[iOff + i] = vBase + i;
+                        iOff += g.attributes.position.count;
+                    }
+                    vBase += g.attributes.position.count;
+                    vOff += g.attributes.position.count;
+                });
+                merged = new THREE.BufferGeometry();
+                merged.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+                merged.setAttribute('normal', new THREE.BufferAttribute(norm, 3));
+                merged.setIndex(new THREE.BufferAttribute(idx, 1));
+                // Copy UV from first geometry if available
+                if (geometries[0].attributes.uv) {
+                    const uv = new Float32Array(totalVerts * 2);
+                    let uvOff = 0;
+                    geometries.forEach(g => {
+                        if (g.attributes.uv) { uv.set(g.attributes.uv.array, uvOff * 2); uvOff += g.attributes.uv.count; }
+                        else uvOff += g.attributes.position.count;
+                    });
+                    merged.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+                }
+            }
+            // Merge duplicate vertices
+            merged = mergeVertices(merged, 0.0001);
+            merged.computeVertexNormals();
+            state.rig.originalMaterials = materials;
+            return merged;
+        }
+
+        function scaleAndCenterGeometry(geometry) {
+            geometry.computeBoundingBox();
+            const bb = geometry.boundingBox;
+            const height = bb.max.y - bb.min.y;
+            const cx = (bb.min.x + bb.max.x) / 2;
+            const cz = (bb.min.z + bb.max.z) / 2;
+            const minY = bb.min.y;
+            // Use actual reference model height instead of hardcoded TARGET_HEIGHT
+            const targetH = state.rig.refHeight || TARGET_HEIGHT;
+            const sf = height > 0.001 ? targetH / height : 1.0;
+            const pos = geometry.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+                pos.setXYZ(i,
+                    (pos.getX(i) - cx) * sf,
+                    (pos.getY(i) - minY) * sf,
+                    (pos.getZ(i) - cz) * sf
+                );
+            }
+            pos.needsUpdate = true;
+            geometry.computeBoundingBox();
+            geometry.computeVertexNormals();
+            return sf;
+        }
+
+        function detectArms(positions, vertCount, boneData, adjacency) {
+            const SHOULDER_Y = boneData['upperarm.l'] ? boneData['upperarm.l'].head.y : 1.1;
+            // Measure neck half-width
+            let neckHalf = 0.19;
+            const neckXValues = [];
+            for (let i = 0; i < vertCount; i++) {
+                const y = positions[i * 3 + 1];
+                if (y >= 1.12 && y <= 1.22) {
+                    neckXValues.push(Math.abs(positions[i * 3]));
+                }
+            }
+            if (neckXValues.length > 0) {
+                neckXValues.sort((a, b) => a - b);
+                neckHalf = neckXValues[Math.floor(neckXValues.length / 2)];
+            }
+
+            function bodyHW(y) {
+                if (y >= SHOULDER_Y) return neckHalf * 0.75;
+                if (y >= 0.7) { const t = (SHOULDER_Y - y) / (SHOULDER_Y - 0.7); return neckHalf * 0.75 + t * 0.10; }
+                if (y >= 0.40) return neckHalf * 0.85 + 0.05;
+                return 0.20;
+            }
+
+            // Seed arms
+            const leftArm = new Set();
+            const rightArm = new Set();
+            for (let i = 0; i < vertCount; i++) {
+                const x = positions[i * 3], y = positions[i * 3 + 1];
+                if (y < 0.35 || y > 1.22) continue;
+                const bw = bodyHW(y);
+                if (x > bw) leftArm.add(i);
+                else if (x < -bw) rightArm.add(i);
+            }
+
+            // Flood extend
+            function floodExtend(seedSet, sideSign) {
+                const result = new Set(seedSet);
+                const queue = [...seedSet];
+                const visited = new Set(seedSet);
+                while (queue.length > 0) {
+                    const cur = queue.shift();
+                    const neighbors = adjacency.get(cur);
+                    if (!neighbors) continue;
+                    for (const nb of neighbors) {
+                        if (visited.has(nb)) continue;
+                        visited.add(nb);
+                        const nx = positions[nb * 3], ny = positions[nb * 3 + 1];
+                        if (ny > 1.25 || ny < 0.30) continue;
+                        if (nx * sideSign < 0.02) continue;
+                        const bw = bodyHW(ny) * 0.80;
+                        if (Math.abs(nx) < bw) continue;
+                        result.add(nb);
+                        queue.push(nb);
+                    }
+                }
+                return result;
+            }
+
+            const finalLeft = floodExtend(leftArm, 1);
+            const finalRight = floodExtend(rightArm, -1);
+            console.log(`Arms detected: L=${finalLeft.size}, R=${finalRight.size}`);
+            return { leftArm: finalLeft, rightArm: finalRight, bodyHW, neckHalf };
+        }
+
+        function reshapeArmsToTPose(positions, vertCount, boneData, leftArm, rightArm) {
+            for (const [sideSign, armSet, sideName] of [[1, leftArm, 'l'], [-1, rightArm, 'r']]) {
+                if (armSet.size === 0) continue;
+                const pivotBone = boneData[`upperarm.${sideName}`];
+                if (!pivotBone) continue;
+                const pivot = pivotBone.head.clone();
+                // Find arm extents
+                let armBottom = Infinity;
+                for (const vi of armSet) {
+                    armBottom = Math.min(armBottom, positions[vi * 3 + 1]);
+                }
+                const curLen = pivot.y - armBottom;
+                const targetArmLen = state.rig.armLength || KAYKIT_ARM_LENGTH;
+                let armScale = targetArmLen / Math.max(curLen, 0.1);
+                armScale = Math.min(armScale, 3.0);
+                // Rotation: around Z axis in Three.js Y-up
+                // PI/2 * sideSign: left arm goes to +X, right to -X
+                const angle = Math.PI / 2 * sideSign;
+                const cosA = Math.cos(angle), sinA = Math.sin(angle);
+                for (const vi of armSet) {
+                    const i3 = vi * 3;
+                    let rx = (positions[i3] - pivot.x) * armScale;
+                    let ry = (positions[i3 + 1] - pivot.y) * armScale;
+                    let rz = (positions[i3 + 2] - pivot.z) * armScale;
+                    // Rotate around Z: newX = cos*x - sin*y, newY = sin*x + cos*y
+                    const newX = cosA * rx - sinA * ry;
+                    const newY = sinA * rx + cosA * ry;
+                    positions[i3] = pivot.x + newX;
+                    positions[i3 + 1] = pivot.y + newY;
+                    positions[i3 + 2] = pivot.z + rz;
+                }
+                console.log(`Arm ${sideName}: pivot=(${pivot.x.toFixed(3)},${pivot.y.toFixed(3)}), len=${curLen.toFixed(3)}, scale=${armScale.toFixed(3)}`);
+            }
+        }
+
+        function assignWeights(positions, vertCount, boneData, boneNames, leftArm, rightArm) {
+            const boneCount = boneNames.length;
+            const fullWeights = new Float32Array(vertCount * boneCount);
+            const boneIdx = {};
+            boneNames.forEach((n, i) => boneIdx[n] = i);
+
+            const HEAD_BOTTOM = boneData['head'] ? boneData['head'].head.y : 1.3;
+            const CHEST_TOP = boneData['chest'] ? boneData['chest'].tail.y : 1.1;
+            const CHEST_BOTTOM = boneData['chest'] ? boneData['chest'].head.y : 0.85;
+            const SPINE_BOTTOM = boneData['spine'] ? boneData['spine'].head.y : 0.6;
+            const HIPS_BOTTOM = boneData['hips'] ? boneData['hips'].head.y : 0.41;
+
+            const allArm = new Set([...leftArm, ...rightArm]);
+
+            function addWeight(vi, boneName, weight) {
+                const bi = boneIdx[boneName];
+                if (bi !== undefined && weight > 0.001) {
+                    fullWeights[vi * boneCount + bi] += weight;
+                }
+            }
+
+            function boneSegDist(p, boneName) {
+                const bd = boneData[boneName];
+                if (!bd) return 999;
+                return segDist(p, bd.head, bd.tail);
+            }
+
+            for (let vi = 0; vi < vertCount; vi++) {
+                const x = positions[vi * 3], y = positions[vi * 3 + 1], z = positions[vi * 3 + 2];
+                const p = new THREE.Vector3(x, y, z);
+                const weights = {};
+
+                if (allArm.has(vi)) {
+                    const side = leftArm.has(vi) ? 'l' : 'r';
+                    const armBones = [`upperarm.${side}`, `lowerarm.${side}`, `wrist.${side}`, `hand.${side}`, `handslot.${side}`];
+                    const sigmas = { [`upperarm.${side}`]: 0.15, [`lowerarm.${side}`]: 0.13, [`wrist.${side}`]: 0.08, [`hand.${side}`]: 0.07, [`handslot.${side}`]: 0.06 };
+                    for (const bn of armBones) {
+                        const d = boneSegDist(p, bn);
+                        const s = sigmas[bn];
+                        const w = Math.exp(-d * d / (2 * s * s));
+                        if (w > 0.001) weights[bn] = w;
+                    }
+                    const dChest = boneSegDist(p, 'chest');
+                    const wChest = Math.exp(-dChest * dChest / (2 * 0.15 * 0.15)) * 0.2;
+                    if (wChest > 0.001) weights['chest'] = wChest;
+
+                } else if (y > HEAD_BOTTOM - 0.08) {
+                    const t = Math.min(1, Math.max(0, (y - (HEAD_BOTTOM - 0.08)) / 0.13));
+                    weights['head'] = t;
+                    weights['chest'] = (1 - t) * 0.7;
+                    weights['spine'] = (1 - t) * 0.3;
+
+                } else if (y > CHEST_BOTTOM) {
+                    const t = Math.min(1, Math.max(0, (y - CHEST_BOTTOM) / (CHEST_TOP - CHEST_BOTTOM)));
+                    weights['chest'] = 0.5 + 0.5 * t;
+                    weights['spine'] = 0.5 - 0.5 * t;
+
+                } else if (y > SPINE_BOTTOM) {
+                    const t = Math.min(1, Math.max(0, (y - SPINE_BOTTOM) / (CHEST_BOTTOM - SPINE_BOTTOM)));
+                    weights['spine'] = 0.5 + 0.5 * t;
+                    weights['hips'] = 0.3 * (1 - t);
+                    weights['chest'] = 0.2 * t;
+
+                } else if (y > HIPS_BOTTOM) {
+                    const t = Math.min(1, Math.max(0, (y - HIPS_BOTTOM) / (SPINE_BOTTOM - HIPS_BOTTOM)));
+                    weights['hips'] = 0.6 + 0.2 * t;
+                    weights['spine'] = 0.2 * t;
+                    weights['root'] = 0.2 * (1 - t);
+                    if (Math.abs(x) > 0.10) {
+                        const side = x > 0 ? 'l' : 'r';
+                        const d = boneSegDist(p, `upperleg.${side}`);
+                        weights[`upperleg.${side}`] = Math.exp(-d * d / (2 * 0.12 * 0.12)) * 0.4;
+                    }
+
+                } else {
+                    // Legs
+                    if (Math.abs(x) < 0.03) {
+                        for (const s of ['l', 'r']) {
+                            const blend = Math.max(0.2, Math.min(0.8, 0.5 + (s === 'l' ? x / 0.06 : -x / 0.06)));
+                            for (const bp of ['upperleg', 'lowerleg', 'foot', 'toes']) {
+                                const bn = `${bp}.${s}`;
+                                const d = boneSegDist(p, bn);
+                                const sig = bp === 'toes' ? 0.10 : 0.12;
+                                const w = Math.exp(-d * d / (2 * sig * sig)) * blend;
+                                if (w > 0.001) weights[bn] = (weights[bn] || 0) + w;
+                            }
+                        }
+                        if (y > HIPS_BOTTOM - 0.08) {
+                            weights['hips'] = Math.max(0, (y - (HIPS_BOTTOM - 0.08)) / 0.08) * 0.3;
+                        }
+                    } else {
+                        const side = x > 0 ? 'l' : 'r';
+                        for (const bp of ['upperleg', 'lowerleg', 'foot', 'toes']) {
+                            const bn = `${bp}.${side}`;
+                            const d = boneSegDist(p, bn);
+                            const sig = bp === 'toes' ? 0.10 : 0.12;
+                            const w = Math.exp(-d * d / (2 * sig * sig));
+                            if (w > 0.001) weights[bn] = w;
+                        }
+                        if (y > HIPS_BOTTOM - 0.08) {
+                            weights['hips'] = Math.max(0, (y - (HIPS_BOTTOM - 0.08)) / 0.08) * 0.3;
+                        }
+                    }
+                }
+
+                // Normalize and store
+                let total = 0;
+                for (const w of Object.values(weights)) total += w;
+                if (total > 0) {
+                    for (const [bn, w] of Object.entries(weights)) {
+                        const nw = w / total;
+                        if (nw > 0.003) addWeight(vi, bn, nw);
+                    }
+                } else {
+                    addWeight(vi, 'root', 1.0);
+                }
+            }
+
+            // Boost handslot weights
+            for (const side of ['l', 'r']) {
+                const hs = `handslot.${side}`;
+                const hsIdx = boneIdx[hs];
+                if (hsIdx === undefined || !boneData[hs]) continue;
+                const hsPos = boneData[hs].head;
+                const armSetArr = [...(side === 'l' ? leftArm : rightArm)];
+                const candidates = armSetArr.map(vi => {
+                    const dx = positions[vi*3] - hsPos.x, dy = positions[vi*3+1] - hsPos.y, dz = positions[vi*3+2] - hsPos.z;
+                    return { vi, d: Math.sqrt(dx*dx + dy*dy + dz*dz) };
+                }).sort((a, b) => a.d - b.d);
+                const nAssign = Math.min(40, candidates.length);
+                for (let j = 0; j < nAssign; j++) {
+                    const { vi, d } = candidates[j];
+                    const w = Math.max(0.05, Math.exp(-d * d / (2 * 0.05 * 0.05)));
+                    fullWeights[vi * boneCount + hsIdx] += w;
+                }
+            }
+
+            // Normalize all
+            for (let vi = 0; vi < vertCount; vi++) {
+                let total = 0;
+                for (let bi = 0; bi < boneCount; bi++) total += fullWeights[vi * boneCount + bi];
+                if (total > 0) {
+                    for (let bi = 0; bi < boneCount; bi++) fullWeights[vi * boneCount + bi] /= total;
+                }
+            }
+
+            return fullWeights;
+        }
+
+        function smoothWeights(fullWeights, adjacency, vertCount, boneCount, boneNames, factor, passes) {
+            const lockedBones = new Set();
+            boneNames.forEach((n, i) => { if (n.includes('handslot')) lockedBones.add(i); });
+            for (let pass = 0; pass < passes; pass++) {
+                const newW = new Float32Array(fullWeights);
+                for (let vi = 0; vi < vertCount; vi++) {
+                    const neighbors = adjacency.get(vi);
+                    if (!neighbors || neighbors.size === 0) continue;
+                    for (let bi = 0; bi < boneCount; bi++) {
+                        if (lockedBones.has(bi)) continue;
+                        let sum = 0;
+                        for (const ni of neighbors) sum += fullWeights[ni * boneCount + bi];
+                        const avg = sum / neighbors.size;
+                        newW[vi * boneCount + bi] = fullWeights[vi * boneCount + bi] * (1 - factor) + avg * factor;
+                    }
+                }
+                fullWeights.set(newW);
+                // Re-normalize
+                for (let vi = 0; vi < vertCount; vi++) {
+                    let total = 0;
+                    for (let bi = 0; bi < boneCount; bi++) total += fullWeights[vi * boneCount + bi];
+                    if (total > 0) for (let bi = 0; bi < boneCount; bi++) fullWeights[vi * boneCount + bi] /= total;
+                }
+            }
+        }
+
+        function packSkinWeights(geometry, fullWeights, vertCount, boneCount) {
+            const skinIndices = new Uint16Array(vertCount * 4);
+            const skinWeights = new Float32Array(vertCount * 4);
+            for (let vi = 0; vi < vertCount; vi++) {
+                // Find top 4 bones
+                const boneWeights = [];
+                for (let bi = 0; bi < boneCount; bi++) {
+                    const w = fullWeights[vi * boneCount + bi];
+                    if (w > 0.001) boneWeights.push({ bi, w });
+                }
+                boneWeights.sort((a, b) => b.w - a.w);
+                let totalTop = 0;
+                for (let j = 0; j < Math.min(4, boneWeights.length); j++) {
+                    skinIndices[vi * 4 + j] = boneWeights[j].bi;
+                    skinWeights[vi * 4 + j] = boneWeights[j].w;
+                    totalTop += boneWeights[j].w;
+                }
+                // Normalize top 4
+                if (totalTop > 0) {
+                    for (let j = 0; j < 4; j++) skinWeights[vi * 4 + j] /= totalTop;
+                }
+            }
+            geometry.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(skinIndices, 4));
+            geometry.setAttribute('skinWeight', new THREE.Float32BufferAttribute(skinWeights, 4));
+        }
+
+        function cloneSkeleton(refSkeleton) {
+            const boneMap = new Map();
+            let rootBone = null;
+
+            function cloneBone(src) {
+                const bone = new THREE.Bone();
+                bone.name = src.name;
+                bone.position.copy(src.position);
+                bone.quaternion.copy(src.quaternion);
+                bone.scale.copy(src.scale);
+                boneMap.set(src, bone);
+                for (const child of src.children) {
+                    if (child.isBone) bone.add(cloneBone(child));
+                }
+                return bone;
+            }
+
+            // Find root bone (first bone with no bone parent)
+            for (const bone of refSkeleton.bones) {
+                if (!bone.parent || !bone.parent.isBone) {
+                    rootBone = cloneBone(bone);
+                    break;
+                }
+            }
+
+            // Build bones array in same order as reference
+            const bones = [];
+            for (let i = 0; i < refSkeleton.bones.length; i++) {
+                const cloned = boneMap.get(refSkeleton.bones[i]);
+                if (cloned) bones.push(cloned);
+            }
+
+            // Don't pass boneInverses — let bind() compute them fresh
+            // from actual bone world positions in our hierarchy
+            const skeleton = new THREE.Skeleton(bones);
+            return { skeleton, rootBone };
+        }
+
+        async function autoRig() {
+            if (!state.userModel || state.rig.boneNames.length === 0) {
+                updateStatus('Load a model and reference first');
+                return;
+            }
+
+            const progressEl = document.getElementById('rigProgress');
+            const progressFill = document.getElementById('rigProgressFill');
+            const progressText = document.getElementById('rigProgressText');
+            const statusEl = document.getElementById('rigStatus');
+
+            progressEl.style.display = '';
+            statusEl.classList.remove('active', 'success', 'error');
+            document.getElementById('autoRigBtn').disabled = true;
+
+            function setProgress(pct, text) {
+                progressFill.style.width = pct + '%';
+                progressText.textContent = text;
+            }
+
+            try {
+                setProgress(5, 'Collecting geometry...');
+                await new Promise(r => requestAnimationFrame(r));
+
+                // Step 1: Collect and merge geometry
+                const geometry = collectAndMergeGeometry(state.userModel, state.transforms);
+                if (!geometry) throw new Error('No geometry found in model');
+
+                // Debug: measure raw geometry height
+                geometry.computeBoundingBox();
+                const rawH = geometry.boundingBox.max.y - geometry.boundingBox.min.y;
+                console.log('Raw geometry height (after collect):', rawH);
+                console.log('Reference height target:', state.rig.refHeight || TARGET_HEIGHT);
+
+                setProgress(10, 'Scaling and centering...');
+                await new Promise(r => requestAnimationFrame(r));
+
+                // Step 2: Scale and center
+                scaleAndCenterGeometry(geometry);
+                geometry.computeBoundingBox();
+                const scaledH = geometry.boundingBox.max.y - geometry.boundingBox.min.y;
+                console.log('Scaled geometry height (after scaleAndCenter):', scaledH);
+                const vertCount = geometry.attributes.position.count;
+                const positions = geometry.attributes.position.array;
+                state.rig.vertCount = vertCount;
+                state.rig.processedPositions = new Float32Array(positions);
+
+                setProgress(15, `Building adjacency (${vertCount} verts)...`);
+                await new Promise(r => requestAnimationFrame(r));
+
+                // Step 3: Build adjacency
+                const adjacency = buildAdjacency(geometry);
+                state.rig.adjacency = adjacency;
+
+                setProgress(25, 'Detecting arms...');
+                await new Promise(r => requestAnimationFrame(r));
+
+                // Step 4: Detect arms
+                const { leftArm, rightArm } = detectArms(positions, vertCount, state.rig.boneData, adjacency);
+                state.rig.leftArm = leftArm;
+                state.rig.rightArm = rightArm;
+
+                setProgress(35, 'Reshaping arms to T-pose...');
+                await new Promise(r => requestAnimationFrame(r));
+
+                // Step 5: Reshape arms
+                reshapeArmsToTPose(positions, vertCount, state.rig.boneData, leftArm, rightArm);
+                geometry.attributes.position.needsUpdate = true;
+
+                // Step 6: Assign weights (chunked for UI responsiveness)
+                setProgress(40, 'Assigning weights...');
+                await new Promise(r => requestAnimationFrame(r));
+                const fullWeights = assignWeights(positions, vertCount, state.rig.boneData, state.rig.boneNames, leftArm, rightArm);
+
+                setProgress(75, 'Smoothing weights...');
+                await new Promise(r => requestAnimationFrame(r));
+
+                // Step 7: Smooth
+                smoothWeights(fullWeights, adjacency, vertCount, state.rig.boneNames.length, state.rig.boneNames, 0.25, 1);
+                state.weightPaint.fullWeights = fullWeights;
+
+                setProgress(85, 'Building skinned mesh...');
+                await new Promise(r => requestAnimationFrame(r));
+
+                // Step 8: Pack skin weights
+                packSkinWeights(geometry, fullWeights, vertCount, state.rig.boneNames.length);
+
+                // Step 9: Clone skeleton
+                const refSkel = state.refSkinnedMesh.skeleton;
+                const { skeleton, rootBone } = cloneSkeleton(refSkel);
+
+                // Step 10: Create SkinnedMesh
+                const mat = state.rig.originalMaterials.length > 0
+                    ? state.rig.originalMaterials[0]
+                    : new THREE.MeshStandardMaterial({ color: 0x888888 });
+                const skinnedMesh = new THREE.SkinnedMesh(geometry, mat);
+                skinnedMesh.name = 'RiggedCharacter';
+
+                // Build container
+                const container = new THREE.Object3D();
+                container.name = 'RigContainer';
+                container.add(rootBone);
+                container.add(skinnedMesh);
+
+                // Remove old model, add rigged — BEFORE bind() so world matrices are valid
+                if (state.userModel) { state.scene.remove(state.userModel); state.userModel = null; }
+                if (state.rig.rigContainer) state.scene.remove(state.rig.rigContainer);
+                state.scene.add(container);
+                // Update all world matrices (bones + mesh) before binding
+                container.updateMatrixWorld(true);
+                // bind() without bindMatrix computes boneInverses from current bone world positions
+                skinnedMesh.bind(skeleton);
+
+                // Debug: measure final skinned mesh bounding box
+                skinnedMesh.geometry.computeBoundingBox();
+                const finalBB = skinnedMesh.geometry.boundingBox;
+                console.log('Final SkinnedMesh geometry BB:', {
+                    minY: finalBB.min.y.toFixed(4), maxY: finalBB.max.y.toFixed(4),
+                    height: (finalBB.max.y - finalBB.min.y).toFixed(4),
+                });
+                // Log bone root position for comparison
+                console.log('Root bone world position:', rootBone.position.toArray());
+                if (state.rig.boneData['head']) {
+                    console.log('Head bone (from Knight):', state.rig.boneData['head'].head.toArray());
+                }
+
+                state.rig.rigContainer = container;
+                state.rig.skinnedMesh = skinnedMesh;
+                state.rig.skeleton = skeleton;
+                state.rig.isRigged = true;
+
+                // Create animation mixer for the rigged mesh
+                state.timeline.mixer = new THREE.AnimationMixer(container);
+
+                setProgress(100, 'Done!');
+
+                // Enable paint mode and export
+                document.getElementById('paintTab').classList.remove('disabled');
+                document.getElementById('exportGlbBtn').disabled = false;
+                document.getElementById('timelineBar').style.display = 'flex';
+
+                statusEl.textContent = `Rigged: ${vertCount} verts, ${state.rig.boneNames.length} bones`;
+                statusEl.classList.add('active', 'success');
+                updateStatus('Auto-rig complete');
+
+                // Build bone list for paint mode
+                buildBoneList();
+
+            } catch (err) {
+                console.error('Auto-rig failed:', err);
+                statusEl.textContent = `Error: ${err.message}`;
+                statusEl.classList.add('active', 'error');
+                updateStatus('Auto-rig failed');
+            } finally {
+                setTimeout(() => { progressEl.style.display = 'none'; }, 1000);
+                document.getElementById('autoRigBtn').disabled = false;
+            }
+        }
+
+
+        // ===== WEIGHT PAINT + HEATMAP =====
+
+        function weightToColor(w) {
+            const colors = [
+                [0.0, 0.0, 0.4], [0.0, 0.8, 0.8], [0.0, 0.8, 0.0],
+                [0.9, 0.9, 0.0], [1.0, 0.0, 0.0]
+            ];
+            const t = Math.max(0, Math.min(1, w)) * 4;
+            const i = Math.min(3, Math.floor(t));
+            const f = t - i;
+            return [
+                colors[i][0] + (colors[i+1][0] - colors[i][0]) * f,
+                colors[i][1] + (colors[i+1][1] - colors[i][1]) * f,
+                colors[i][2] + (colors[i+1][2] - colors[i][2]) * f,
+            ];
+        }
+
+        function updateHeatmap(boneIndex) {
+            const mesh = state.rig.skinnedMesh;
+            if (!mesh || boneIndex < 0) return;
+            const geom = mesh.geometry;
+            const vertCount = state.rig.vertCount;
+            const boneCount = state.rig.boneNames.length;
+            const fw = state.weightPaint.fullWeights;
+            if (!fw) return;
+
+            let colorAttr = geom.getAttribute('color');
+            if (!colorAttr) {
+                colorAttr = new THREE.Float32BufferAttribute(new Float32Array(vertCount * 3), 3);
+                geom.setAttribute('color', colorAttr);
+            }
+            for (let vi = 0; vi < vertCount; vi++) {
+                const w = fw[vi * boneCount + boneIndex];
+                const [r, g, b] = weightToColor(w);
+                colorAttr.setXYZ(vi, r, g, b);
+            }
+            colorAttr.needsUpdate = true;
+
+            // Switch to vertex-color material
+            if (!state.weightPaint.heatmapMaterial) {
+                state.weightPaint.heatmapMaterial = new THREE.MeshBasicMaterial({ vertexColors: true });
+            }
+            if (mesh.material !== state.weightPaint.heatmapMaterial) {
+                state.weightPaint.originalMaterial = mesh.material;
+                mesh.material = state.weightPaint.heatmapMaterial;
+            }
+        }
+
+        function buildBoneList() {
+            const list = document.getElementById('boneList');
+            list.innerHTML = '';
+            state.rig.boneNames.forEach((name, idx) => {
+                const item = document.createElement('div');
+                item.className = 'bone-item';
+                item.dataset.boneIdx = idx;
+                item.innerHTML = `<span>${name}</span><span class="bone-weight" id="boneW_${idx}">-</span>`;
+                item.addEventListener('click', () => selectBone(idx));
+                list.appendChild(item);
+            });
+        }
+
+        function selectBone(boneIndex) {
+            state.weightPaint.activeBoneIndex = boneIndex;
+            state.weightPaint.activeBone = state.rig.boneNames[boneIndex];
+            // Update UI
+            document.querySelectorAll('.bone-item').forEach(el => {
+                el.classList.toggle('active', parseInt(el.dataset.boneIdx) === boneIndex);
+            });
+            updateHeatmap(boneIndex);
+        }
+
+        // ===== PAINT BRUSH =====
+        function enterPaintMode() {
+            if (!state.rig.isRigged) return;
+            state.weightPaint.active = true;
+            state.mode = 'paint';
+            // Disable left-click orbit, keep right for orbit
+            state.controls.mouseButtons.LEFT = null;
+            state.controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
+            // Select first bone if none selected
+            if (state.weightPaint.activeBoneIndex < 0 && state.rig.boneNames.length > 0) {
+                selectBone(0);
+            } else if (state.weightPaint.activeBoneIndex >= 0) {
+                updateHeatmap(state.weightPaint.activeBoneIndex);
+            }
+        }
+
+        function exitPaintMode() {
+            state.weightPaint.active = false;
+            state.mode = 'setup';
+            state.weightPaint.brushCursor.visible = false;
+            state.controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+            state.controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
+            // Restore original material
+            const mesh = state.rig.skinnedMesh;
+            if (mesh && state.weightPaint.originalMaterial) {
+                mesh.material = state.weightPaint.originalMaterial;
+            }
+        }
+
+        function onViewportMouseMove(event) {
+            if (!state.weightPaint.active || !state.rig.skinnedMesh) return;
+            const rect = state.renderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(mouse, state.camera);
+            const intersects = raycaster.intersectObject(state.rig.skinnedMesh);
+            if (intersects.length > 0) {
+                const cursor = state.weightPaint.brushCursor;
+                cursor.position.copy(intersects[0].point);
+                cursor.scale.setScalar(state.weightPaint.brushSize);
+                cursor.visible = true;
+                if (state.weightPaint.isPainting) {
+                    applyBrush(intersects[0].point);
+                }
+            } else {
+                state.weightPaint.brushCursor.visible = false;
+            }
+        }
+
+        function onViewportMouseDown(event) {
+            if (!state.weightPaint.active || event.button !== 0) return;
+            if (!state.rig.skinnedMesh) return;
+            state.weightPaint.isPainting = true;
+            // Save undo snapshot start
+            state._paintDelta = [];
+            // Apply first stroke
+            const rect = state.renderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(mouse, state.camera);
+            const intersects = raycaster.intersectObject(state.rig.skinnedMesh);
+            if (intersects.length > 0) applyBrush(intersects[0].point);
+        }
+
+        function onViewportMouseUp(event) {
+            if (!state.weightPaint.isPainting) return;
+            state.weightPaint.isPainting = false;
+            // Save undo entry
+            if (state._paintDelta && state._paintDelta.length > 0) {
+                pushUndo(state._paintDelta);
+            }
+            state._paintDelta = null;
+        }
+
+        function applyBrush(hitPoint) {
+            const bi = state.weightPaint.activeBoneIndex;
+            if (bi < 0) return;
+            const boneCount = state.rig.boneNames.length;
+            const fw = state.weightPaint.fullWeights;
+            const positions = state.rig.processedPositions;
+            const vertCount = state.rig.vertCount;
+            const brushSize = state.weightPaint.brushSize;
+            const intensity = state.weightPaint.brushIntensity;
+            const mode = state.weightPaint.brushMode;
+            const brushSq = brushSize * brushSize;
+            const affectedVerts = [];
+
+            for (let vi = 0; vi < vertCount; vi++) {
+                const dx = positions[vi*3] - hitPoint.x;
+                const dy = positions[vi*3+1] - hitPoint.y;
+                const dz = positions[vi*3+2] - hitPoint.z;
+                const distSq = dx*dx + dy*dy + dz*dz;
+                if (distSq > brushSq) continue;
+
+                const dist = Math.sqrt(distSq);
+                const falloff = Math.exp(-distSq / (2 * (brushSize * 0.5) * (brushSize * 0.5)));
+
+                // Save before state for undo
+                const before = new Float32Array(4);
+                const skinW = state.rig.skinnedMesh.geometry.getAttribute('skinWeight');
+                const skinI = state.rig.skinnedMesh.geometry.getAttribute('skinIndex');
+                for (let j = 0; j < 4; j++) before[j] = skinW.getComponent(vi * 4 + j);
+
+                if (mode === 'add') {
+                    fw[vi * boneCount + bi] += falloff * intensity;
+                } else if (mode === 'subtract') {
+                    fw[vi * boneCount + bi] = Math.max(0, fw[vi * boneCount + bi] - falloff * intensity);
+                } else if (mode === 'smooth') {
+                    const neighbors = state.rig.adjacency.get(vi);
+                    if (neighbors && neighbors.size > 0) {
+                        let sum = 0;
+                        for (const ni of neighbors) sum += fw[ni * boneCount + bi];
+                        const avg = sum / neighbors.size;
+                        fw[vi * boneCount + bi] = fw[vi * boneCount + bi] * (1 - falloff * intensity) + avg * (falloff * intensity);
+                    }
+                }
+
+                // Re-normalize this vertex
+                let total = 0;
+                for (let b = 0; b < boneCount; b++) total += fw[vi * boneCount + b];
+                if (total > 0) for (let b = 0; b < boneCount; b++) fw[vi * boneCount + b] /= total;
+
+                // Repack top-4 for this vertex
+                const boneWeights = [];
+                for (let b = 0; b < boneCount; b++) {
+                    const w = fw[vi * boneCount + b];
+                    if (w > 0.001) boneWeights.push({ bi: b, w });
+                }
+                boneWeights.sort((a, b) => b.w - a.w);
+                let topTotal = 0;
+                for (let j = 0; j < 4; j++) {
+                    if (j < boneWeights.length) {
+                        skinI.setComponent(vi * 4 + j, boneWeights[j].bi);
+                        skinW.setComponent(vi * 4 + j, boneWeights[j].w);
+                        topTotal += boneWeights[j].w;
+                    } else {
+                        skinI.setComponent(vi * 4 + j, 0);
+                        skinW.setComponent(vi * 4 + j, 0);
+                    }
+                }
+                if (topTotal > 0) for (let j = 0; j < 4; j++) skinW.setComponent(vi * 4 + j, skinW.getComponent(vi * 4 + j) / topTotal);
+
+                // After state
+                const after = new Float32Array(4);
+                for (let j = 0; j < 4; j++) after[j] = skinW.getComponent(vi * 4 + j);
+
+                if (state._paintDelta) {
+                    state._paintDelta.push({ idx: vi, before, after });
+                }
+                affectedVerts.push(vi);
+            }
+
+            // Update heatmap colors for affected verts
+            const geom = state.rig.skinnedMesh.geometry;
+            const colorAttr = geom.getAttribute('color');
+            if (colorAttr) {
+                for (const vi of affectedVerts) {
+                    const w = fw[vi * boneCount + bi];
+                    const [r, g, b] = weightToColor(w);
+                    colorAttr.setXYZ(vi, r, g, b);
+                }
+                colorAttr.needsUpdate = true;
+            }
+            geom.getAttribute('skinWeight').needsUpdate = true;
+            geom.getAttribute('skinIndex').needsUpdate = true;
+        }
+
+        function onViewportWheel(event) {
+            if (!state.weightPaint.active) return;
+            event.preventDefault();
+            const delta = event.deltaY > 0 ? -0.005 : 0.005;
+            state.weightPaint.brushSize = Math.max(0.01, Math.min(0.3, state.weightPaint.brushSize + delta));
+            document.getElementById('brushSizeSlider').value = state.weightPaint.brushSize;
+            document.getElementById('brushSizeValue').textContent = state.weightPaint.brushSize.toFixed(3);
+        }
+
+        // ===== PROBLEM DETECTOR =====
+        function detectProblems() {
+            if (!state.weightPaint.fullWeights) return;
+            const fw = state.weightPaint.fullWeights;
+            const boneCount = state.rig.boneNames.length;
+            const vertCount = state.rig.vertCount;
+            const headIdx = state.rig.boneOrder['head'] || 0;
+            const chestIdx = state.rig.boneOrder['chest'] || 0;
+            const spineIdx = state.rig.boneOrder['spine'] || 0;
+            const problems = [];
+            for (let vi = 0; vi < vertCount; vi++) {
+                const headW = fw[vi * boneCount + headIdx];
+                const torsoW = fw[vi * boneCount + chestIdx] + fw[vi * boneCount + spineIdx];
+                if (headW > 0.15 && torsoW > 0.15) problems.push(vi);
+            }
+            state.problems.vertices = problems;
+
+            // Update UI
+            const countEl = document.getElementById('problemCount');
+            countEl.textContent = problems.length > 0 ? `${problems.length} issues` : 'None';
+            document.getElementById('autoFixBtn').disabled = problems.length === 0;
+
+            // Visual overlay
+            if (state.problems.overlay) { state.scene.remove(state.problems.overlay); state.problems.overlay = null; }
+            if (problems.length > 0) {
+                const positions = state.rig.processedPositions;
+                const pts = new Float32Array(problems.length * 3);
+                for (let i = 0; i < problems.length; i++) {
+                    pts[i*3] = positions[problems[i]*3];
+                    pts[i*3+1] = positions[problems[i]*3+1];
+                    pts[i*3+2] = positions[problems[i]*3+2];
+                }
+                const geo = new THREE.BufferGeometry();
+                geo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+                const mat = new THREE.PointsMaterial({ color: 0xffff00, size: 0.02, depthTest: false });
+                state.problems.overlay = new THREE.Points(geo, mat);
+                state.scene.add(state.problems.overlay);
+            }
+            updateStatus(`Found ${problems.length} problem vertices`);
+        }
+
+        function autoFixProblems() {
+            if (state.problems.vertices.length === 0) return;
+            const fw = state.weightPaint.fullWeights;
+            const boneCount = state.rig.boneNames.length;
+            const headIdx = state.rig.boneOrder['head'];
+            const armBoneNames = ['upperarm.l','lowerarm.l','wrist.l','hand.l','handslot.l','upperarm.r','lowerarm.r','wrist.r','hand.r','handslot.r'];
+            const armIdxSet = new Set(armBoneNames.map(n => state.rig.boneOrder[n]).filter(i => i !== undefined));
+            const HEAD_BOTTOM = state.rig.boneData['head'] ? state.rig.boneData['head'].head.y : 1.3;
+
+            for (const vi of state.problems.vertices) {
+                const y = state.rig.processedPositions[vi * 3 + 1];
+                if (y < HEAD_BOTTOM) continue;
+                // Set head=1.0 minus arm weights, zero non-arm non-head
+                let armTotal = 0;
+                for (const ai of armIdxSet) armTotal += fw[vi * boneCount + ai];
+                for (let bi = 0; bi < boneCount; bi++) {
+                    if (bi === headIdx) fw[vi * boneCount + bi] = Math.max(0, 1.0 - armTotal);
+                    else if (!armIdxSet.has(bi)) fw[vi * boneCount + bi] = 0;
+                }
+            }
+
+            // Repack and update
+            packSkinWeights(state.rig.skinnedMesh.geometry, fw, state.rig.vertCount, boneCount);
+            if (state.weightPaint.activeBoneIndex >= 0) updateHeatmap(state.weightPaint.activeBoneIndex);
+            detectProblems();
+            updateStatus(`Fixed ${state.problems.vertices.length} vertices`);
+        }
+
+        // ===== UNDO / REDO =====
+        function pushUndo(delta) {
+            state.history.undoStack.push(delta);
+            if (state.history.undoStack.length > state.history.maxSize) state.history.undoStack.shift();
+            state.history.redoStack = [];
+            updateUndoUI();
+        }
+
+        function undo() {
+            if (state.history.undoStack.length === 0) return;
+            const delta = state.history.undoStack.pop();
+            const geom = state.rig.skinnedMesh.geometry;
+            const skinW = geom.getAttribute('skinWeight');
+            for (const { idx, before } of delta) {
+                for (let j = 0; j < 4; j++) skinW.setComponent(idx * 4 + j, before[j]);
+            }
+            skinW.needsUpdate = true;
+            state.history.redoStack.push(delta);
+            if (state.weightPaint.activeBoneIndex >= 0) updateHeatmap(state.weightPaint.activeBoneIndex);
+            updateUndoUI();
+        }
+
+        function redo() {
+            if (state.history.redoStack.length === 0) return;
+            const delta = state.history.redoStack.pop();
+            const geom = state.rig.skinnedMesh.geometry;
+            const skinW = geom.getAttribute('skinWeight');
+            for (const { idx, after } of delta) {
+                for (let j = 0; j < 4; j++) skinW.setComponent(idx * 4 + j, after[j]);
+            }
+            skinW.needsUpdate = true;
+            state.history.undoStack.push(delta);
+            if (state.weightPaint.activeBoneIndex >= 0) updateHeatmap(state.weightPaint.activeBoneIndex);
+            updateUndoUI();
+        }
+
+        function updateUndoUI() {
+            document.getElementById('undoCount').textContent = state.history.undoStack.length;
+            document.getElementById('redoCount').textContent = state.history.redoStack.length;
+            document.getElementById('undoBtn').disabled = state.history.undoStack.length === 0;
+            document.getElementById('redoBtn').disabled = state.history.redoStack.length === 0;
+        }
+
+        // ===== GLB EXPORT =====
+        async function exportRiggedGLB() {
+            if (!state.rig.isRigged || !state.rig.skinnedMesh) {
+                updateStatus('No rigged model to export');
+                return;
+            }
+            updateStatus('Exporting GLB...');
+            try {
+                const exporter = new GLTFExporter();
+                const exportScene = new THREE.Scene();
+                // Clone the container for export
+                const container = state.rig.rigContainer.clone(true);
+                exportScene.add(container);
+                const glb = await exporter.parseAsync(exportScene, { binary: true });
+
+                // Post-process: fix bone names (GLTFExporter strips dots)
+                // Parse the GLB, fix JSON, re-pack
+                const fixedGlb = fixGlbBoneNames(glb);
+
+                const blob = new Blob([fixedGlb], { type: 'application/octet-stream' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = (state.modelStats.filename || 'model').replace(/\.(glb|gltf)$/i, '_rigged.glb');
+                a.click();
+                URL.revokeObjectURL(url);
+                updateStatus('GLB exported');
+            } catch (err) {
+                console.error('GLB export error:', err);
+                updateStatus('Export failed: ' + err.message);
+            }
+        }
+
+        function fixGlbBoneNames(glbBuffer) {
+            // GLB format: 12-byte header + chunks
+            const view = new DataView(glbBuffer);
+            const jsonChunkLen = view.getUint32(12, true);
+            // const jsonChunkType = view.getUint32(16, true); // 0x4E4F534A = JSON
+            const jsonBytes = new Uint8Array(glbBuffer, 20, jsonChunkLen);
+            const jsonStr = new TextDecoder().decode(jsonBytes);
+            const gltf = JSON.parse(jsonStr);
+
+            // Bone name mapping: sanitized -> correct KayKit name
+            const nameMap = {};
+            for (const boneName of state.rig.boneNames) {
+                // GLTFExporter removes dots: "handslot.l" -> "handslotl"
+                const sanitized = boneName.replace(/[^a-zA-Z0-9_]/g, '');
+                if (sanitized !== boneName) {
+                    nameMap[sanitized] = boneName;
+                }
+            }
+            console.log('Bone name fixes:', nameMap);
+
+            // Fix node names
+            let fixed = 0;
+            if (gltf.nodes) {
+                for (const node of gltf.nodes) {
+                    if (node.name && nameMap[node.name]) {
+                        node.name = nameMap[node.name];
+                        fixed++;
+                    }
+                }
+            }
+            console.log(`Fixed ${fixed} bone names in GLB`);
+
+            // Re-encode JSON
+            const fixedJsonStr = JSON.stringify(gltf);
+            const fixedJsonBytes = new TextEncoder().encode(fixedJsonStr);
+            // Pad JSON to 4-byte alignment
+            const paddedLen = Math.ceil(fixedJsonBytes.length / 4) * 4;
+            const paddedJson = new Uint8Array(paddedLen);
+            paddedJson.set(fixedJsonBytes);
+            for (let i = fixedJsonBytes.length; i < paddedLen; i++) paddedJson[i] = 0x20; // space padding
+
+            // Binary chunk (everything after the original JSON chunk)
+            const binChunkOffset = 20 + jsonChunkLen;
+            const binChunk = new Uint8Array(glbBuffer, binChunkOffset);
+
+            // Rebuild GLB
+            const totalLen = 12 + 8 + paddedLen + binChunk.length;
+            const result = new ArrayBuffer(totalLen);
+            const out = new DataView(result);
+            // Header
+            out.setUint32(0, 0x46546C67, true); // glTF magic
+            out.setUint32(4, 2, true); // version
+            out.setUint32(8, totalLen, true);
+            // JSON chunk
+            out.setUint32(12, paddedLen, true);
+            out.setUint32(16, 0x4E4F534A, true); // JSON
+            new Uint8Array(result, 20, paddedLen).set(paddedJson);
+            // Binary chunk (copy as-is)
+            new Uint8Array(result, 20 + paddedLen).set(binChunk);
+
+            return result;
+        }
+
+        // ===== MODE SWITCHING =====
+        function switchMode(mode) {
+            state.mode = mode;
+            document.getElementById('setupTab').classList.toggle('active', mode === 'setup');
+            document.getElementById('paintTab').classList.toggle('active', mode === 'paint');
+            document.getElementById('setupPanels').style.display = mode === 'setup' ? '' : 'none';
+            document.getElementById('paintPanels').style.display = mode === 'paint' ? '' : 'none';
+            if (mode === 'paint') enterPaintMode();
+            else exitPaintMode();
+        }
+
+
+        // ===== BLENDER SCRIPT GEN =====
+        function generateBlenderScript() {
+            const t = state.transforms;
+            const filename = state.modelStats.filename || 'model.glb';
+            const outputName = filename.replace('.glb', '_rigged').replace('.gltf', '_rigged');
+            const timestamp = new Date().toLocaleString();
+            if (state.skeletonType === 'soldier') return generateSoldierScript(t, filename, outputName);
+
+            return `"""
+Auto-generated by Character Editor Royale v3.0
+Created: ${timestamp}
+Usage: /home/lumen/blender-4.2.0-linux-x64/blender --background --python this_script.py
+"""
+import bpy
+import bmesh
+import os
+import math
+from mathutils import Vector
+
+KNIGHT_PATH = "/home/lumen/novojogo/godot/assets/kaykit/adventurers/Knight.glb"
+MODEL_PATH = "/path/to/your/${filename}"
+OUTPUT_PATH = "/home/lumen/novojogo/godot/assets/kaykit/adventurers/${outputName}.glb"
+TARGET_HEIGHT = 2.4
+NECK_Z = ${t.headCutoff.toFixed(3)}
+ARM_X_THRESHOLD = ${t.armWidth.toFixed(3)}
+ARM_X_BLEND = 0.15
+
+def log(msg):
+    print(f"[RIG] {msg}")
+
+def get_bbox(obj):
+    coords = [obj.matrix_world @ Vector(v) for v in obj.bound_box]
+    mins = Vector((min(c.x for c in coords), min(c.y for c in coords), min(c.z for c in coords)))
+    maxs = Vector((max(c.x for c in coords), max(c.y for c in coords), max(c.z for c in coords)))
+    return mins, maxs
+
+def clean_mesh(mesh_obj):
+    log("Cleaning mesh geometry...")
+    bpy.ops.object.select_all(action='DESELECT')
+    mesh_obj.select_set(True)
+    bpy.context.view_layer.objects.active = mesh_obj
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.mesh.remove_doubles(threshold=0.0001)
+    bpy.ops.mesh.normals_make_consistent(inside=False)
+    try:
+        bpy.ops.mesh.fill_holes(sides=4)
+    except:
+        pass
+    bpy.ops.mesh.delete_loose()
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+def distance_weights(armature, mesh_obj):
+    log("Applying distance-based weights...")
+    bones_data = []
+    for bone in armature.data.bones:
+        head = armature.matrix_world @ bone.head_local
+        tail = armature.matrix_world @ bone.tail_local
+        bones_data.append({"name": bone.name, "head": head, "tail": tail})
+    mesh_obj.vertex_groups.clear()
+    for bd in bones_data:
+        mesh_obj.vertex_groups.new(name=bd["name"])
+    SIGMA = {"head": 0.5, "chest": 0.3, "spine": 0.3, "hips": 0.3,
+             "upperarm": 0.2, "lowerarm": 0.15, "wrist": 0.12, "hand": 0.12,
+             "handslot": 0.1, "upperleg": 0.2, "lowerleg": 0.15, "foot": 0.15,
+             "toes": 0.1, "root": 0.05}
+    def get_sigma(bone_name):
+        for key, val in SIGMA.items():
+            if key in bone_name: return val
+        return 0.2
+    def point_to_segment_dist(p, a, b):
+        ab = b - a; ab_len = ab.length
+        if ab_len < 0.0001: return (p - a).length
+        t = max(0.0, min(1.0, (p - a).dot(ab) / (ab_len * ab_len)))
+        return (p - (a + ab * t)).length
+    for v in mesh_obj.data.vertices:
+        vpos = mesh_obj.matrix_world @ v.co
+        weights = []
+        for i, bd in enumerate(bones_data):
+            if bd["name"] == "root": continue
+            dist = point_to_segment_dist(vpos, bd["head"], bd["tail"])
+            sigma = get_sigma(bd["name"])
+            w = math.exp(-(dist * dist) / (2 * sigma * sigma))
+            if w > 0.01: weights.append((i, w))
+        total = sum(w for _, w in weights)
+        if total > 0:
+            for idx, w in weights:
+                mesh_obj.vertex_groups[idx].add([v.index], w / total, 'REPLACE')
+
+def fix_arm_weights(armature, mesh_obj):
+    log("Fixing arm weights...")
+    left_arm_bones = ["upperarm.l", "lowerarm.l", "wrist.l", "hand.l", "handslot.l"]
+    right_arm_bones = ["upperarm.r", "lowerarm.r", "wrist.r", "hand.r", "handslot.r"]
+    torso_bones = ["chest", "spine", "hips", "head"]
+    def get_vg_idx(name):
+        vg = mesh_obj.vertex_groups.get(name)
+        return vg.index if vg else -1
+    left_arm_idxs = [get_vg_idx(n) for n in left_arm_bones if get_vg_idx(n) >= 0]
+    right_arm_idxs = [get_vg_idx(n) for n in right_arm_bones if get_vg_idx(n) >= 0]
+    torso_idxs = [get_vg_idx(n) for n in torso_bones if get_vg_idx(n) >= 0]
+    bone_z = {}
+    for bone in armature.data.bones:
+        bone_z[bone.name] = (armature.matrix_world @ bone.head_local).z
+    chest_z = bone_z.get("chest", 0.97)
+    hips_z = bone_z.get("hips", 0.41)
+    fixed_count = 0
+    for v in mesh_obj.data.vertices:
+        vpos = mesh_obj.matrix_world @ v.co
+        abs_x = abs(vpos.x)
+        if abs_x < ARM_X_THRESHOLD: continue
+        if vpos.z < hips_z or vpos.z > chest_z + 0.4: continue
+        arm_factor = min(1.0, (abs_x - ARM_X_THRESHOLD) / ARM_X_BLEND)
+        is_left = vpos.x > 0
+        arm_idxs = left_arm_idxs if is_left else right_arm_idxs
+        current_weights = {}
+        for g in v.groups: current_weights[g.group] = g.weight
+        arm_weight = sum(current_weights.get(i, 0) for i in arm_idxs)
+        torso_weight = sum(current_weights.get(i, 0) for i in torso_idxs)
+        if arm_weight + torso_weight < 0.01: continue
+        transfer = torso_weight * arm_factor * 0.8
+        if transfer < 0.01: continue
+        best_arm_bone = None; best_dist = 999
+        for bone_name in (left_arm_bones if is_left else right_arm_bones):
+            bz = bone_z.get(bone_name, 0)
+            dist = abs(vpos.z - bz)
+            if dist < best_dist: best_dist = dist; best_arm_bone = bone_name
+        if not best_arm_bone: continue
+        best_idx = get_vg_idx(best_arm_bone)
+        if best_idx < 0: continue
+        for tidx in torso_idxs:
+            old_w = current_weights.get(tidx, 0)
+            if old_w > 0:
+                ratio = transfer / torso_weight if torso_weight > 0 else 0
+                mesh_obj.vertex_groups[tidx].add([v.index], max(0, old_w * (1.0 - ratio)), 'REPLACE')
+        old_arm = current_weights.get(best_idx, 0)
+        mesh_obj.vertex_groups[best_idx].add([v.index], old_arm + transfer, 'REPLACE')
+        fixed_count += 1
+    log(f"Fixed {fixed_count} arm vertices")
+
+def fix_head_weights(armature, mesh_obj):
+    log("Fixing head weights...")
+    head_bone = armature.data.bones.get("head")
+    if not head_bone: return
+    head_vg = mesh_obj.vertex_groups.get("head")
+    if not head_vg: return
+    arm_bone_names = ["upperarm.l","lowerarm.l","wrist.l","hand.l","handslot.l","upperarm.r","lowerarm.r","wrist.r","hand.r","handslot.r"]
+    arm_idxs = set()
+    for name in arm_bone_names:
+        vg = mesh_obj.vertex_groups.get(name)
+        if vg: arm_idxs.add(vg.index)
+    head_idx = head_vg.index
+    ARM_X_LIMIT = ARM_X_THRESHOLD * 0.8
+    fixed_count = 0
+    for v in mesh_obj.data.vertices:
+        vpos = mesh_obj.matrix_world @ v.co
+        if vpos.z < NECK_Z: continue
+        if abs(vpos.x) > ARM_X_LIMIT: continue
+        needs_fix = False
+        for g in v.groups:
+            if g.group != head_idx and g.group not in arm_idxs and g.weight > 0.01:
+                needs_fix = True; break
+        if not needs_fix: continue
+        for g in v.groups:
+            if g.group != head_idx and g.group not in arm_idxs:
+                mesh_obj.vertex_groups[g.group].add([v.index], 0.0, 'REPLACE')
+        arm_total = sum(g.weight for g in v.groups if g.group in arm_idxs)
+        head_vg.add([v.index], max(0.0, 1.0 - arm_total), 'REPLACE')
+        fixed_count += 1
+    log(f"Fixed {fixed_count} head vertices")
+
+def main():
+    log("=== Character Editor Royale v3 - KayKit Rig Script ===")
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    log("Importing Knight armature...")
+    bpy.ops.import_scene.gltf(filepath=KNIGHT_PATH)
+    armature = None
+    for obj in bpy.data.objects:
+        if obj.type == 'ARMATURE': armature = obj; break
+    if not armature: raise RuntimeError("No armature in Knight.glb")
+    for obj in list(bpy.data.objects):
+        if obj.type == 'MESH': bpy.data.objects.remove(obj, do_unlink=True)
+    for mesh in list(bpy.data.meshes):
+        if mesh.users == 0: bpy.data.meshes.remove(mesh)
+    armature.name = "Rig_Medium"; armature.data.name = "Rig_Medium"
+    log(f"Importing: {os.path.basename(MODEL_PATH)}")
+    pre = set(o.name for o in bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=MODEL_PATH)
+    post = set(o.name for o in bpy.data.objects)
+    meshes = [bpy.data.objects[n] for n in (post - pre) if bpy.data.objects[n].type == 'MESH']
+    for n in list(post - pre):
+        obj = bpy.data.objects.get(n)
+        if obj and obj.type in ('ARMATURE', 'EMPTY'):
+            bpy.data.objects.remove(obj, do_unlink=True)
+    if not meshes: raise RuntimeError("No meshes found")
+    if len(meshes) > 1:
+        bpy.ops.object.select_all(action='DESELECT')
+        for m in meshes: m.select_set(True)
+        bpy.context.view_layer.objects.active = meshes[0]
+        bpy.ops.object.join()
+        meshes = [bpy.context.view_layer.objects.active]
+    mesh_obj = meshes[0]; mesh_obj.name = "CharacterMesh"
+    bpy.ops.object.select_all(action='DESELECT')
+    mesh_obj.select_set(True)
+    bpy.context.view_layer.objects.active = mesh_obj
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    mins, maxs = get_bbox(mesh_obj)
+    mesh_height = maxs.z - mins.z
+    scale_factor = TARGET_HEIGHT / mesh_height if mesh_height > 0.001 else 1.0
+    mesh_obj.scale = (scale_factor, scale_factor, scale_factor)
+    mesh_obj.location.x = -(mins.x + maxs.x) / 2.0 * scale_factor
+    mesh_obj.location.y = -(mins.y + maxs.y) / 2.0 * scale_factor
+    mesh_obj.location.z = -mins.z * scale_factor
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    clean_mesh(mesh_obj)
+    log("Trying auto-weights...")
+    bpy.ops.object.select_all(action='DESELECT')
+    mesh_obj.select_set(True); armature.select_set(True)
+    bpy.context.view_layer.objects.active = armature
+    try:
+        bpy.ops.object.parent_set(type='ARMATURE_AUTO')
+    except RuntimeError as e:
+        log(f"Auto-weights failed: {e}")
+    weighted = 0
+    for vg in mesh_obj.vertex_groups:
+        for v in mesh_obj.data.vertices:
+            try:
+                if vg.weight(v.index) > 0: weighted += 1; break
+            except RuntimeError: continue
+    if weighted < 5:
+        log("Auto-weights insufficient, using distance fallback...")
+        bpy.ops.object.select_all(action='DESELECT')
+        mesh_obj.select_set(True)
+        bpy.context.view_layer.objects.active = mesh_obj
+        bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
+        distance_weights(armature, mesh_obj)
+        bpy.ops.object.select_all(action='DESELECT')
+        mesh_obj.select_set(True); armature.select_set(True)
+        bpy.context.view_layer.objects.active = armature
+        bpy.ops.object.parent_set(type='ARMATURE_NAME')
+        mod = mesh_obj.modifiers.new(name="Armature", type='ARMATURE')
+        mod.object = armature
+    fix_arm_weights(armature, mesh_obj)
+    fix_head_weights(armature, mesh_obj)
+    for obj in list(bpy.data.objects):
+        if obj != armature and obj != mesh_obj: bpy.data.objects.remove(obj, do_unlink=True)
+    log("Exporting...")
+    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
+    bpy.ops.object.select_all(action='DESELECT')
+    armature.select_set(True); mesh_obj.select_set(True)
+    bpy.ops.export_scene.gltf(filepath=OUTPUT_PATH, export_format='GLB', use_selection=True, export_skins=True, export_animations=False, export_yup=True)
+    sz = os.path.getsize(OUTPUT_PATH)
+    log(f"Done: {OUTPUT_PATH} ({sz/1024:.1f} KB)")
+
+if __name__ == "__main__":
+    main()
+`;
+        }
+
+        function generateSoldierScript(t, filename, outputName) {
+            const timestamp = new Date().toLocaleString();
+            const rotationRad = (t.rotation * Math.PI / 180).toFixed(4);
+            return `"""
+Auto-generated by Character Editor Royale v3.0 (Soldier Rig)
+Created: ${timestamp}
+Usage: /home/lumen/blender-4.2.0-linux-x64/blender --background --python this_script.py
+"""
+import bpy, math, os
+from mathutils import Vector
+
+SKELETON_FBX = "/home/lumen/Downloads/Human Soldier Animations FREE/Animations/Male/Idles/HumanM@Idle01.fbx"
+MODEL_PATH = "/path/to/your/${filename}"
+OUTPUT_PATH = "/home/lumen/novojogo/godot/assets/soldier/${outputName}.glb"
+
+SCALE = ${t.scale.toFixed(3)}
+OFFSET_Y = ${t.height.toFixed(3)}
+OFFSET_X = ${t.offsetX.toFixed(3)}
+OFFSET_Z = ${t.offsetZ.toFixed(3)}
+ROTATION_Y = ${rotationRad}
+
+def log(msg): print(f"[SOLDIER-RIG] {msg}")
+
+def main():
+    log("=== Soldier Rig ===")
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    bpy.ops.import_scene.fbx(filepath=SKELETON_FBX)
+    armature = None
+    for obj in bpy.data.objects:
+        if obj.type == 'ARMATURE': armature = obj; break
+    if not armature: raise RuntimeError("No armature")
+    bpy.ops.object.select_all(action='DESELECT')
+    armature.select_set(True)
+    bpy.context.view_layer.objects.active = armature
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    for obj in list(bpy.data.objects):
+        if obj != armature: bpy.data.objects.remove(obj, do_unlink=True)
+    armature.name = "SoldierRig"; armature.data.name = "SoldierRig"
+    before = set(o.name for o in bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=MODEL_PATH)
+    after = set(o.name for o in bpy.data.objects)
+    meshes = [bpy.data.objects[n] for n in (after - before) if bpy.data.objects[n].type == 'MESH']
+    if not meshes: raise RuntimeError("No meshes")
+    for mesh_obj in meshes:
+        mesh_obj.scale = (SCALE, SCALE, SCALE)
+        mesh_obj.rotation_euler[2] = ROTATION_Y
+        mesh_obj.location.x += OFFSET_X; mesh_obj.location.z += OFFSET_Y; mesh_obj.location.y += OFFSET_Z
+        bpy.ops.object.select_all(action='DESELECT')
+        mesh_obj.select_set(True)
+        bpy.context.view_layer.objects.active = mesh_obj
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    bpy.ops.object.select_all(action='DESELECT')
+    for mesh in meshes: mesh.select_set(True)
+    armature.select_set(True)
+    bpy.context.view_layer.objects.active = armature
+    try: bpy.ops.object.parent_set(type='ARMATURE_AUTO')
+    except: bpy.ops.object.parent_set(type='ARMATURE_ENVELOPE')
+    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
+    bpy.ops.object.select_all(action='DESELECT')
+    armature.select_set(True)
+    for obj in bpy.data.objects:
+        if obj.parent == armature: obj.select_set(True)
+    bpy.ops.export_scene.gltf(filepath=OUTPUT_PATH, export_format='GLB', use_selection=True, export_skins=True, export_animations=False, export_yup=True)
+    log(f"Done: {OUTPUT_PATH}")
+
+if __name__ == "__main__": main()
+`;
+        }
+
+        function syntaxHighlight(code) {
+            return code
+                .replace(/^("""[\s\S]*?""")/gm, '<span class="code-comment">$1</span>')
+                .replace(/(#.*$)/gm, '<span class="code-comment">$1</span>')
+                .replace(/\b(import|from|def|class|if|else|elif|for|while|return|try|except|raise|with|as|in|and|or|not)\b/g, '<span class="code-keyword">$1</span>')
+                .replace(/\b(print|str|int|float|len|range|enumerate|open|True|False|None)\b/g, '<span class="code-function">$1</span>')
+                .replace(/(["'].*?["'])/g, '<span class="code-string">$1</span>')
+                .replace(/\b(\d+\.?\d*)\b/g, '<span class="code-number">$1</span>');
+        }
+
+        // ===== UI CONTROLLERS =====
+        function setupUI() {
+            // File input
+            const fileInput = document.getElementById('fileInput');
+            const dropZone = document.getElementById('dropZone');
+            fileInput.addEventListener('change', e => { if (e.target.files.length > 0) loadUserModel(e.target.files[0]); });
+            dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+            dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); if (e.dataTransfer.files.length > 0) loadUserModel(e.dataTransfer.files[0]); });
+            const viewport = document.getElementById('viewport');
+            viewport.addEventListener('dragover', e => e.preventDefault());
+            viewport.addEventListener('drop', e => { e.preventDefault(); if (e.dataTransfer.files.length > 0) loadUserModel(e.dataTransfer.files[0]); });
+
+            // Transform sliders
+            for (const name of ['scale', 'height', 'rotation', 'offsetX', 'offsetZ', 'armLeft', 'armRight']) {
+                const slider = document.getElementById(name + 'Slider');
+                const input = document.getElementById(name + 'Input');
+                slider.addEventListener('input', e => {
+                    const v = parseFloat(e.target.value); state.transforms[name] = v; input.value = v; applyTransforms();
+                    if (name === 'scale') document.getElementById('statusScale').textContent = v.toFixed(2);
+                });
+                input.addEventListener('input', e => {
+                    const v = parseFloat(e.target.value); if (!isNaN(v)) { state.transforms[name] = v; slider.value = v; applyTransforms(); }
+                });
+            }
+
+            // Weight zone sliders
+            for (const [key, sliderId, labelId] of [['headCutoff', 'headCutoffSlider', 'headCutoffValue'], ['armWidth', 'armWidthSlider', 'armWidthValue']]) {
+                document.getElementById(sliderId).addEventListener('input', e => {
+                    const v = parseFloat(e.target.value); state.transforms[key] = v;
+                    document.getElementById(labelId).textContent = v.toFixed(2); updateWeightZoneVisuals();
+                });
+            }
+            document.getElementById('showWeightZones').addEventListener('change', e => { if (state.weightZones) state.weightZones.visible = e.target.checked; });
+
+            // Auto T-Pose
+            document.getElementById('autoTPoseBtn').addEventListener('click', () => {
+                state.transforms.armLeft = -90; state.transforms.armRight = -90;
+                for (const id of ['armLeftSlider','armLeftInput','armRightSlider','armRightInput']) document.getElementById(id).value = -90;
+            });
+
+            // Animation buttons
+            document.querySelectorAll('[data-anim]').forEach(btn => btn.addEventListener('click', () => playAnimation(btn.dataset.anim)));
+
+            // Display toggles
+            document.getElementById('showSkeleton').addEventListener('change', e => { if (state.referenceSkeletonHelper) state.referenceSkeletonHelper.visible = e.target.checked; });
+            document.getElementById('showBoneMarkers').addEventListener('change', e => state.boneMarkers.forEach(m => m.mesh.visible = e.target.checked));
+            document.getElementById('wireframeMode').addEventListener('change', e => { if (state.userModelMesh) state.userModelMesh.material.wireframe = e.target.checked; });
+            document.getElementById('showReference').addEventListener('change', e => {
+                if (state.referenceModel) state.referenceModel.visible = e.target.checked;
+                if (state.referenceSkeletonHelper) state.referenceSkeletonHelper.visible = e.target.checked && document.getElementById('showSkeleton').checked;
+            });
+
+            // Camera presets
+            const cameraPresets = { front: [[0,1.2,3],[0,1,0]], side: [[3,1.2,0],[0,1,0]], top: [[0,4,0.01],[0,0,0]], tps: [[-0.6,2.3,-3.5],[0,1.2,0]] };
+            document.querySelectorAll('[data-camera]').forEach(btn => btn.addEventListener('click', () => {
+                const p = cameraPresets[btn.dataset.camera]; if (p) moveCameraTo(p[0], p[1]);
+            }));
+
+            // Tab switching
+            document.getElementById('setupTab').addEventListener('click', () => switchMode('setup'));
+            document.getElementById('paintTab').addEventListener('click', () => {
+                if (!document.getElementById('paintTab').classList.contains('disabled')) switchMode('paint');
+            });
+
+            // Auto-rig
+            document.getElementById('autoRigBtn').addEventListener('click', autoRig);
+
+            // Export buttons
+            document.getElementById('exportBtn').addEventListener('click', () => {
+                if (!state.userModelFile && !state.rig.isRigged) { alert('Load a model first'); return; }
+                document.getElementById('exportCode').innerHTML = syntaxHighlight(generateBlenderScript());
+                document.getElementById('exportModal').classList.add('active');
+            });
+            document.getElementById('exportGlbBtn').addEventListener('click', exportRiggedGLB);
+            document.getElementById('copyCodeBtn').addEventListener('click', () => {
+                navigator.clipboard.writeText(generateBlenderScript()).then(() => {
+                    const btn = document.getElementById('copyCodeBtn');
+                    btn.textContent = 'Copied!'; btn.style.background = 'var(--success)';
+                    setTimeout(() => { btn.textContent = 'Copy'; btn.style.background = ''; }, 2000);
+                });
+            });
+            document.getElementById('downloadCodeBtn').addEventListener('click', () => {
+                const code = generateBlenderScript();
+                const fn = (state.modelStats.filename || 'model').replace(/\.(glb|gltf)$/i, '_rig.py');
+                const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([code], {type:'text/plain'})); a.download = fn; a.click();
+            });
+
+            // Skeleton type
+            document.querySelectorAll('[data-skel]').forEach(btn => btn.addEventListener('click', () => {
+                state.skeletonType = btn.dataset.skel;
+                document.querySelectorAll('[data-skel]').forEach(b => b.classList.remove('btn-primary'));
+                btn.classList.add('btn-primary');
+                const skelName = btn.dataset.skel === 'kaykit' ? 'KayKit (Chibi)' : 'Soldier (Realistic)';
+                document.getElementById('exportSkelType').textContent = skelName;
+                document.getElementById('exportPath').textContent = btn.dataset.skel === 'kaykit' ? 'godot/assets/kaykit/adventurers/' : 'godot/assets/soldier/';
+                if (state.referenceModel) { state.scene.remove(state.referenceModel); state.referenceModel = null; }
+                if (state.referenceSkeletonHelper) { state.scene.remove(state.referenceSkeletonHelper); state.referenceSkeletonHelper = null; }
+                state.boneMarkers.forEach(m => { if (m.mesh.parent) m.mesh.parent.remove(m.mesh); }); state.boneMarkers = [];
+                loadReferenceModel(); loadAnimations();
+                updateStatus(`Switched to ${skelName}`);
+            }));
+
+            // Brush controls
+            document.getElementById('brushSizeSlider').addEventListener('input', e => {
+                state.weightPaint.brushSize = parseFloat(e.target.value);
+                document.getElementById('brushSizeValue').textContent = state.weightPaint.brushSize.toFixed(3);
+            });
+            document.getElementById('brushIntensitySlider').addEventListener('input', e => {
+                state.weightPaint.brushIntensity = parseFloat(e.target.value);
+                document.getElementById('brushIntensityValue').textContent = state.weightPaint.brushIntensity.toFixed(2);
+            });
+            document.querySelectorAll('.brush-mode-btn').forEach(btn => btn.addEventListener('click', () => {
+                document.querySelectorAll('.brush-mode-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.weightPaint.brushMode = btn.dataset.mode;
+            }));
+
+            // Problems
+            document.getElementById('scanProblemsBtn').addEventListener('click', detectProblems);
+            document.getElementById('autoFixBtn').addEventListener('click', autoFixProblems);
+
+            // Paint display
+            document.getElementById('showSkeletonPaint').addEventListener('change', e => { if (state.referenceSkeletonHelper) state.referenceSkeletonHelper.visible = e.target.checked; });
+            document.getElementById('wireframePaint').addEventListener('change', e => {
+                if (state.rig.skinnedMesh) {
+                    const mat = state.rig.skinnedMesh.material;
+                    if (mat) mat.wireframe = e.target.checked;
+                }
+            });
+
+            // Undo/Redo
+            document.getElementById('undoBtn').addEventListener('click', undo);
+            document.getElementById('redoBtn').addEventListener('click', redo);
+
+            // Timeline
+            document.getElementById('timelinePlay').addEventListener('click', () => {
+                state.timeline.playing = !state.timeline.playing;
+                document.getElementById('timelinePlay').textContent = state.timeline.playing ? '\u23F8' : '\u25B6';
+            });
+            document.getElementById('timelineScrubber').addEventListener('input', e => {
+                if (state.timeline.mixer && state.currentAnimation) {
+                    state.currentAnimation.time = parseFloat(e.target.value);
+                    state.timeline.mixer.setTime(parseFloat(e.target.value));
+                    document.getElementById('timelineTime').textContent = parseFloat(e.target.value).toFixed(2) + 's';
+                }
+            });
+            document.getElementById('timelinePrev').addEventListener('click', () => {
+                if (state.currentAnimation) { state.currentAnimation.time = Math.max(0, state.currentAnimation.time - 1/30); }
+            });
+            document.getElementById('timelineNext').addEventListener('click', () => {
+                if (state.currentAnimation) { state.currentAnimation.time += 1/30; }
+            });
+            document.getElementById('timelineSpeed').addEventListener('change', e => { state.timeline.speed = parseFloat(e.target.value); });
+
+            // Viewport paint events
+            const canvas = state.renderer.domElement;
+            canvas.addEventListener('mousemove', onViewportMouseMove);
+            canvas.addEventListener('mousedown', onViewportMouseDown);
+            canvas.addEventListener('mouseup', onViewportMouseUp);
+            canvas.addEventListener('wheel', onViewportWheel, { passive: false });
+
+            // Keyboard shortcuts
+            window.addEventListener('keydown', e => {
+                if (document.getElementById('exportModal').classList.contains('active')) {
+                    if (e.key === 'Escape') document.getElementById('exportModal').classList.remove('active');
+                    return;
+                }
+                // Don't capture when input is focused
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+
+                if (e.key === 'Tab' && state.rig.isRigged) {
+                    e.preventDefault();
+                    switchMode(state.mode === 'setup' ? 'paint' : 'setup');
+                } else if (e.key === '[') {
+                    if (e.shiftKey) { state.weightPaint.brushIntensity = Math.max(0, state.weightPaint.brushIntensity - 0.05); document.getElementById('brushIntensitySlider').value = state.weightPaint.brushIntensity; document.getElementById('brushIntensityValue').textContent = state.weightPaint.brushIntensity.toFixed(2); }
+                    else { state.weightPaint.brushSize = Math.max(0.01, state.weightPaint.brushSize - 0.01); document.getElementById('brushSizeSlider').value = state.weightPaint.brushSize; document.getElementById('brushSizeValue').textContent = state.weightPaint.brushSize.toFixed(3); }
+                } else if (e.key === ']') {
+                    if (e.shiftKey) { state.weightPaint.brushIntensity = Math.min(1, state.weightPaint.brushIntensity + 0.05); document.getElementById('brushIntensitySlider').value = state.weightPaint.brushIntensity; document.getElementById('brushIntensityValue').textContent = state.weightPaint.brushIntensity.toFixed(2); }
+                    else { state.weightPaint.brushSize = Math.min(0.3, state.weightPaint.brushSize + 0.01); document.getElementById('brushSizeSlider').value = state.weightPaint.brushSize; document.getElementById('brushSizeValue').textContent = state.weightPaint.brushSize.toFixed(3); }
+                } else if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undo(); }
+                else if (e.ctrlKey && e.key === 'y') { e.preventDefault(); redo(); }
+                else if (e.key === ' ' && state.rig.isRigged) { e.preventDefault(); state.timeline.playing = !state.timeline.playing; document.getElementById('timelinePlay').textContent = state.timeline.playing ? '\u23F8' : '\u25B6'; }
+                else if (e.key === ',') { if (state.currentAnimation) state.currentAnimation.time = Math.max(0, state.currentAnimation.time - 1/30); }
+                else if (e.key === '.') { if (state.currentAnimation) state.currentAnimation.time += 1/30; }
+                else if (state.mode !== 'paint') {
+                    switch (e.key.toLowerCase()) {
+                        case 'r': moveCameraTo([3,1.5,3], [0,1,0]); break;
+                        case 'f': moveCameraTo([0,1.2,3], [0,1,0]); break;
+                        case 's': moveCameraTo([3,1.2,0], [0,1,0]); break;
+                        case 't': moveCameraTo([0,4,0.01], [0,0,0]); break;
+                        case 'g': moveCameraTo([-0.6,2.3,-3.5], [0,1.2,0]); break;
+                    }
+                } else {
+                    // Number keys for quick bone select in paint mode
+                    const num = parseInt(e.key);
+                    if (num >= 1 && num <= 9 && num <= state.rig.boneNames.length) selectBone(num - 1);
+                }
+            });
+
+            // Window resize
+            window.addEventListener('resize', () => {
+                const vp = document.getElementById('viewport');
+                state.camera.aspect = vp.clientWidth / vp.clientHeight;
+                state.camera.updateProjectionMatrix();
+                state.renderer.setSize(vp.clientWidth, vp.clientHeight);
+            });
+        }
+
+        // ===== MAIN =====
+        init();
+        setupUI();
+    </script>
+</body>
+</html>

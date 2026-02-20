@@ -1,8 +1,10 @@
 extends Node3D
 ## Main procedural world scene controller.
-## Initializes WorldGenerator and positions the player on safe terrain.
+## Dynamically spawns players for each connected multiplayer peer.
+## Initializes WorldGenerator and positions players on safe terrain.
 ## In BR mode, also spawns lobby area, zone controller, drop controller, and victory screen.
 
+const PLAYER_SCENE := preload("res://scenes/player/player.tscn")
 const BOT_COUNT := 12
 const BOT_SCENE := preload("res://scenes/ai/bot.tscn")
 
@@ -11,16 +13,74 @@ var _zone_visual: Node3D = null
 var _drop_controller: Node = null
 var _lobby_hud: CanvasLayer = null
 var _victory_screen: CanvasLayer = null
+var _world_ready := false
 
 
 func _ready() -> void:
-	$Player.set_physics_process(false)
 	var seed_val := _get_seed()
 	var wtype := WorldGenerator.WorldType.CITY if MatchManager.is_br_mode() else WorldGenerator.WorldType.TERRAIN
 	WorldGenerator.world_initialized.connect(_on_world_ready)
 	WorldGenerator.initialize(seed_val, wtype)
+
+	# Spawn players for all connected peers
+	if multiplayer.has_multiplayer_peer():
+		NetworkManager.player_connected.connect(_on_player_joined)
+		NetworkManager.player_disconnected.connect(_on_player_left)
+		for peer_id in NetworkManager.connected_peers:
+			_spawn_player(peer_id)
+	else:
+		# Offline testing: spawn a local player
+		_spawn_player(0)
+
 	if MatchManager.is_br_mode():
 		_setup_br_systems()
+
+
+func _spawn_player(peer_id: int) -> void:
+	# Dedicated server (peer 1) has no visual player
+	if peer_id == 1 and multiplayer.is_server():
+		return
+	var players_node := $Players
+	if players_node.has_node(str(peer_id)):
+		return
+	var player := PLAYER_SCENE.instantiate()
+	player.name = str(peer_id)
+	# Set authority BEFORE add_child so _ready authority checks work
+	if peer_id > 0:
+		player.set_multiplayer_authority(peer_id)
+	# Position near map center to avoid chunk loading at origin
+	var center := float(WorldGenerator.MAP_SIZE) / 2.0
+	player.position = Vector3(center + 16.0, 50.0, center + 16.0)
+	player.set_physics_process(false)
+	players_node.add_child(player)
+	print("[GameWorld] Spawned player for peer %d" % peer_id)
+	if _world_ready:
+		_position_and_enable_player(player)
+
+
+func _position_and_enable_player(player: CharacterBody3D) -> void:
+	var center := float(WorldGenerator.MAP_SIZE) / 2.0
+	var peer_hash := player.name.hash()
+	var offset_x := float(absi(peer_hash * 7) % 20) - 10.0
+	var offset_z := float(absi(peer_hash * 13) % 20) - 10.0
+	var x := center + 16.0 + offset_x
+	var z := center + 16.0 + offset_z
+	var height := WorldGenerator.get_height_at(x, z)
+	var safe_y := maxf(height, WaterSystem.BASE_WATER_LEVEL) + 2.0
+	player.global_position = Vector3(x, safe_y, z)
+	player.velocity = Vector3.ZERO
+	player.set_physics_process(true)
+
+
+func _on_player_joined(peer_id: int) -> void:
+	_spawn_player(peer_id)
+
+
+func _on_player_left(peer_id: int) -> void:
+	var player := $Players.get_node_or_null(str(peer_id))
+	if player:
+		player.queue_free()
+		print("[GameWorld] Removed player for peer %d" % peer_id)
 
 
 func _setup_br_systems() -> void:
@@ -77,46 +137,55 @@ func _on_match_state_changed(_old: int, new_state: int) -> void:
 
 
 func _on_world_ready(_seed: int) -> void:
+	_world_ready = true
 	var center := float(WorldGenerator.MAP_SIZE) / 2.0
-	# Offset from exact chunk boundary to be well inside a chunk
 	var spawn_x := center + 16.0
 	var spawn_z := center + 16.0
 
-	# Force-load chunks around spawn before placing the player
+	# Force-load chunks around spawn before placing players
 	ChunkManager.update_chunks(Vector3(spawn_x, 0.0, spawn_z))
 
 	# Wait for physics to register collision shapes
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 
-	var height := WorldGenerator.get_height_at(spawn_x, spawn_z)
-	var safe_y := maxf(height, WaterSystem.BASE_WATER_LEVEL) + 2.0
-
-	var player := $Player as CharacterBody3D
-	if MatchManager.is_br_mode():
-		# CLI --br test: skip lobby, spawn on ground in city
-		var is_cli_br := false
-		var all_args := OS.get_cmdline_args() + OS.get_cmdline_user_args()
-		for arg in all_args:
-			if arg == "--br":
-				is_cli_br = true
-				break
-		if is_cli_br:
-			player.global_position = Vector3(spawn_x, 2.0, spawn_z)
+	# Position all existing players
+	for player_node in $Players.get_children():
+		var player := player_node as CharacterBody3D
+		if not player:
+			continue
+		if MatchManager.is_br_mode():
+			_position_br_player(player)
 		else:
-			# Normal BR: player starts on lobby platform
-			var lobby := get_node_or_null("LobbyArea")
-			if lobby and lobby.has_method("get_spawn_position"):
-				player.global_position = lobby.get_spawn_position(0)
-			else:
-				player.global_position = Vector3(512, 201, 512)
-		player.velocity = Vector3.ZERO
-		player.set_physics_process(true)
-	else:
-		player.global_position = Vector3(spawn_x, safe_y, spawn_z)
-		player.velocity = Vector3.ZERO
-		player.set_physics_process(true)
+			_position_and_enable_player(player)
+
 	_spawn_bots(Vector3(spawn_x, 0.0, spawn_z))
+
+
+func _position_br_player(player: CharacterBody3D) -> void:
+	var center := float(WorldGenerator.MAP_SIZE) / 2.0
+	var spawn_x := center + 16.0
+	var spawn_z := center + 16.0
+
+	# CLI --br test: skip lobby, spawn on ground in city
+	var is_cli_br := false
+	var all_args := OS.get_cmdline_args() + OS.get_cmdline_user_args()
+	for arg in all_args:
+		if arg == "--br":
+			is_cli_br = true
+			break
+	if is_cli_br:
+		player.global_position = Vector3(spawn_x, 2.0, spawn_z)
+	else:
+		# Normal BR: player starts on lobby platform
+		var lobby := get_node_or_null("LobbyArea")
+		if lobby and lobby.has_method("get_spawn_position"):
+			var idx := $Players.get_children().find(player)
+			player.global_position = lobby.get_spawn_position(idx)
+		else:
+			player.global_position = Vector3(512, 201, 512)
+	player.velocity = Vector3.ZERO
+	player.set_physics_process(true)
 
 
 func _spawn_bots(center: Vector3) -> void:

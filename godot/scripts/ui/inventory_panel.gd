@@ -320,15 +320,18 @@ func _build_slot_widgets(
 # ── Inventory Connection ──
 
 func _connect_inventory() -> void:
-	var players := get_tree().get_nodes_in_group("players")
-	if players.is_empty():
-		var game_world := get_parent()
-		if game_world:
-			var player := game_world.get_node_or_null("Player")
-			if player:
-				_player_inv = player.get_node_or_null("PlayerInventory") as PlayerInventory
-	else:
-		_player_inv = players[0].get_node_or_null("PlayerInventory") as PlayerInventory
+	var local: Node = null
+	for p in get_tree().get_nodes_in_group("players"):
+		if p is CharacterBody3D:
+			if not multiplayer.has_multiplayer_peer() or p.is_multiplayer_authority():
+				local = p
+				break
+	if not local:
+		var players := get_tree().get_nodes_in_group("players")
+		if not players.is_empty():
+			local = players[0]
+	if local:
+		_player_inv = local.get_node_or_null("PlayerInventory") as PlayerInventory
 
 	if _player_inv:
 		_player_inv.hotbar.inventory_changed.connect(_refresh_all)
