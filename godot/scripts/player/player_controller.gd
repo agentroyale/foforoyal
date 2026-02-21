@@ -103,6 +103,29 @@ func _swap_player_model() -> void:
 	move_child(new_model, 1)
 
 
+func apply_remote_character(char_id: String) -> void:
+	## Swap model on a remote player to match their character selection.
+	if char_id == "" or char_id == "barbarian":
+		return
+	if char_id not in CHARACTER_MODELS:
+		return
+	var old_model := get_node_or_null("PlayerModel")
+	if not old_model:
+		return
+	var scene := load(CHARACTER_MODELS[char_id]) as PackedScene
+	if not scene:
+		return
+	remove_child(old_model)
+	old_model.queue_free()
+	var new_model := scene.instantiate()
+	new_model.name = "PlayerModel"
+	new_model.set_script(load("res://scripts/player/player_model.gd"))
+	new_model._char_id = char_id
+	print("[PlayerController] Remote model -> '%s'" % char_id)
+	add_child(new_model)
+	move_child(new_model, 1)
+
+
 func disable_movement() -> void:
 	movement_disabled = true
 

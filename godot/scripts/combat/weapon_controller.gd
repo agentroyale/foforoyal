@@ -408,6 +408,12 @@ func equip_weapon(weapon: WeaponData) -> void:
 	if model:
 		model.equip_weapon_visual(weapon)
 
+	# Sync weapon visual to remote players
+	if _is_multiplayer_active() and weapon.resource_path != "":
+		var cn := get_node_or_null("/root/CombatNetcode")
+		if cn:
+			cn.request_weapon_sync.rpc_id(1, weapon.resource_path)
+
 
 func get_accumulated_recoil() -> Vector2:
 	return _accumulated_recoil

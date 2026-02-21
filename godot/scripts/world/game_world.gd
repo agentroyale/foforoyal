@@ -8,6 +8,7 @@ const PLAYER_SCENE := preload("res://scenes/player/player.tscn")
 const BOT_COUNT := 4
 const BOT_SCENE := preload("res://scenes/ai/bot.tscn")
 
+var _peer_characters: Dictionary = {}  # peer_id -> char_id (server tracks all)
 var _zone_controller: Node = null
 var _zone_visual: Node3D = null
 var _drop_controller: Node = null
@@ -63,6 +64,14 @@ func _spawn_player(peer_id: int) -> void:
 	print("[GameWorld] Spawned player for peer %d" % peer_id)
 	if _world_ready:
 		_position_and_enable_player(player)
+	# Local player: sync character selection to server
+	if multiplayer.has_multiplayer_peer() and peer_id == multiplayer.get_unique_id():
+		_request_char_sync.call_deferred()
+	# Apply pending character data if it arrived before spawn
+	if _peer_characters.has(peer_id) and not multiplayer.is_server():
+		var p := players_node.get_node_or_null(str(peer_id))
+		if p and p is PlayerController:
+			(p as PlayerController).apply_remote_character(_peer_characters[peer_id])
 
 
 func _position_and_enable_player(player: CharacterBody3D) -> void:
@@ -89,9 +98,16 @@ func _on_player_joined(peer_id: int) -> void:
 				existing_peers.append(pid)
 		if not existing_peers.is_empty():
 			_receive_peer_list.rpc_id(peer_id, existing_peers)
+		# Send existing character selections and weapon visuals to the new peer
+		for pid in _peer_characters:
+			_apply_char_sync.rpc_id(peer_id, pid, _peer_characters[pid])
+		var cn := get_node_or_null("/root/CombatNetcode")
+		if cn:
+			cn.send_weapons_to_peer(peer_id)
 
 
 func _on_player_left(peer_id: int) -> void:
+	_peer_characters.erase(peer_id)
 	var player := $Players.get_node_or_null(str(peer_id))
 	if player:
 		player.queue_free()
@@ -268,6 +284,41 @@ func _find_clear_spawn(center: Vector3, rng: RandomNumberGenerator, space: Physi
 			return Vector3(x, result.position.y + 1.5, z)
 	# Fallback: near center
 	return Vector3(center.x + 15.0, 2.0, center.z)
+
+
+# === Character model sync ===
+
+func _request_char_sync() -> void:
+	var char_id := GameSettings.selected_character
+	if char_id == "" or char_id == "barbarian":
+		return
+	_sync_character.rpc_id(1, char_id)
+
+
+@rpc("any_peer", "reliable")
+func _sync_character(char_id: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender_id := multiplayer.get_remote_sender_id()
+	_peer_characters[sender_id] = char_id
+	# Broadcast to all clients (including the sender, so they see confirmation)
+	for peer_id in NetworkManager.connected_peers:
+		if peer_id != 1:
+			_apply_char_sync.rpc_id(peer_id, sender_id, char_id)
+
+
+@rpc("authority", "reliable")
+func _apply_char_sync(peer_id: int, char_id: String) -> void:
+	# Store for late-joining peers
+	_peer_characters[peer_id] = char_id
+	# Don't apply to own player
+	if peer_id == multiplayer.get_unique_id():
+		return
+	var player := $Players.get_node_or_null(str(peer_id))
+	if not player:
+		return  # Will be applied in _spawn_player via _peer_characters check
+	if player is PlayerController:
+		(player as PlayerController).apply_remote_character(char_id)
 
 
 func _get_seed() -> int:

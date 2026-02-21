@@ -22,6 +22,7 @@ const COMBAT_VFX_RADIUS := 200.0  # Meters
 var _last_fire_time: Dictionary = {}  # peer_id -> float (msec)
 var _violations: Dictionary = {}  # peer_id -> Array[float] (timestamps)
 var _last_fire_seq: Dictionary = {}  # peer_id -> int (last accepted sequence number)
+var _peer_weapons: Dictionary = {}  # peer_id -> weapon_resource_path (server tracks)
 
 
 func _ready() -> void:
@@ -35,6 +36,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	_last_fire_time.erase(peer_id)
 	_violations.erase(peer_id)
 	_last_fire_seq.erase(peer_id)
+	_peer_weapons.erase(peer_id)
 
 	# Find that player's NetworkSync and clear lag comp
 	var container := get_tree().current_scene.get_node_or_null("Players")
@@ -398,6 +400,13 @@ func _replicate_fire_vfx(shooter_peer_id: int, muzzle_pos: Vector3,
 	if get_tree() and get_tree().current_scene:
 		get_tree().current_scene.add_child(flash)
 
+	# Play fire animation on shooter's model
+	var shooter := _get_player_node(shooter_peer_id)
+	if shooter:
+		var model := shooter.get_node_or_null("PlayerModel") as PlayerModel
+		if model:
+			model.play_fire_animation(weapon_type)
+
 
 func _broadcast_impact(hit_pos: Vector3, hit_normal: Vector3, sender_id: int = 0) -> void:
 	var recipients := _get_vfx_recipients(sender_id, hit_pos)
@@ -453,6 +462,43 @@ func request_equip(slot_index: int) -> void:
 @rpc("authority", "unreliable")
 func _replicate_equip(_shooter_peer_id: int) -> void:
 	WeaponSfx.play_equip()
+
+
+# === Weapon visual sync ===
+
+@rpc("any_peer", "reliable")
+func request_weapon_sync(weapon_path: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender_id := multiplayer.get_remote_sender_id()
+	_peer_weapons[sender_id] = weapon_path
+	# Broadcast to all clients except sender
+	for peer_id in NetworkManager.connected_peers:
+		if peer_id != 1 and peer_id != sender_id:
+			_apply_weapon_sync.rpc_id(peer_id, sender_id, weapon_path)
+
+
+@rpc("authority", "reliable")
+func _apply_weapon_sync(peer_id: int, weapon_path: String) -> void:
+	if peer_id == multiplayer.get_unique_id():
+		return
+	var player := _get_player_node(peer_id)
+	if not player:
+		return
+	var weapon := load(weapon_path) as WeaponData
+	if not weapon:
+		return
+	var model := player.get_node_or_null("PlayerModel") as PlayerModel
+	if model:
+		model.equip_weapon_visual(weapon)
+
+
+## Send existing weapon data to a newly joined peer.
+func send_weapons_to_peer(peer_id: int) -> void:
+	if not multiplayer.is_server():
+		return
+	for pid in _peer_weapons:
+		_apply_weapon_sync.rpc_id(peer_id, pid, _peer_weapons[pid])
 
 
 # === SERVER -> ALL: Projectile spawn ===

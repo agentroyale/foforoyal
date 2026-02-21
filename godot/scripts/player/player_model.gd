@@ -61,6 +61,7 @@ var drop_mode := false  ## true during BR drop — hides weapon, forces freefall
 var _weapon_hidden_for_drop := false  ## tracks if weapon was hidden by drop
 var _rig_type := "kaykit"  # "kaykit", "meshy", "pepe", or "soldier"
 var _anim_map := {}
+var _char_id: String = ""  # Set by PlayerController for remote players before add_child
 
 
 func _ready() -> void:
@@ -113,6 +114,10 @@ func _find_all_mesh_instances(node: Node) -> Array[MeshInstance3D]:
 
 func _apply_model_overrides() -> void:
 	## Apply per-character transform overrides from GameSettings (set via F9 ModelAdjust).
+	## Skip for remote players — overrides are per-local-character only.
+	var player := get_parent() as CharacterBody3D
+	if player and multiplayer.has_multiplayer_peer() and not player.is_multiplayer_authority():
+		return
 	var char_id := GameSettings.selected_character
 	var override := GameSettings.get_model_override(char_id)
 	if override.is_empty():
@@ -136,7 +141,7 @@ func _detect_rig_type() -> void:
 		_rig_type = "soldier"
 		return
 	# Check for Mixamo rig variants
-	var char_id := GameSettings.selected_character
+	var char_id := _char_id if _char_id != "" else GameSettings.selected_character
 	if _skeleton.find_bone("mixamorig_Hips") >= 0:
 		_rig_type = "pepe"  # mixamorig_ prefix = Pepe FBX
 	elif _skeleton.find_bone("Hips") >= 0:
@@ -655,6 +660,24 @@ func _is_player_aiming() -> bool:
 	if camera_pivot and camera_pivot is PlayerCamera:
 		return camera_pivot.is_aiming
 	return false
+
+
+func play_fire_animation(weapon_type: int) -> void:
+	## Play the appropriate fire animation for a given weapon type.
+	## Used by CombatNetcode to trigger fire anims on remote players.
+	match weapon_type:
+		WeaponData.WeaponType.MELEE:
+			var a: String = _anim_map.get("fire_melee", "")
+			if a != "":
+				play_one_shot(a)
+		WeaponData.WeaponType.BOW:
+			var a: String = _anim_map.get("fire_bow", "")
+			if a != "":
+				play_one_shot(a)
+		_:
+			var a: String = _anim_map.get("fire_ranged", "")
+			if a != "":
+				_play_fire_burst(a)
 
 
 func get_muzzle_position() -> Vector3:
