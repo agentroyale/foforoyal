@@ -21,6 +21,7 @@ const COMBAT_VFX_RADIUS := 200.0  # Meters
 
 var _last_fire_time: Dictionary = {}  # peer_id -> float (msec)
 var _violations: Dictionary = {}  # peer_id -> Array[float] (timestamps)
+var _last_fire_seq: Dictionary = {}  # peer_id -> int (last accepted sequence number)
 
 
 func _ready() -> void:
@@ -33,6 +34,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	# Clean rate limiting state
 	_last_fire_time.erase(peer_id)
 	_violations.erase(peer_id)
+	_last_fire_seq.erase(peer_id)
 
 	# Find that player's NetworkSync and clear lag comp
 	var container := get_tree().current_scene.get_node_or_null("Players")
@@ -109,13 +111,20 @@ func _get_vfx_recipients(sender_id: int, origin_pos: Vector3) -> Array:
 
 # === CLIENT: Request fire ===
 
-@rpc("any_peer", "reliable")
+@rpc("any_peer", "unreliable_ordered")
 func request_fire(cam_origin: Vector3, cam_dir: Vector3, weapon_type: int,
-		spread: float, timestamp: float) -> void:
+		spread: float, timestamp: float, seq: int = 0) -> void:
 	if not multiplayer.is_server():
 		return
 
 	var sender_id := multiplayer.get_remote_sender_id()
+
+	# Sequence check: discard stale/duplicate fire events
+	if seq > 0:
+		var last_seq: int = _last_fire_seq.get(sender_id, 0)
+		if seq <= last_seq:
+			return
+		_last_fire_seq[sender_id] = seq
 
 	# Rate limiting check
 	if not _check_rate_limit(sender_id):
@@ -177,13 +186,40 @@ func _server_hitscan(sender_id: int, shooter: CharacterBody3D,
 		return
 	var weapon := item as WeaponData
 
-	# Raycast on server
+	# --- Lag compensation: rewind target positions to shooter's perceived time ---
+	var peer_rtt_ms: float = NetworkManager.peer_rtt.get(sender_id, 0.0)
+	var rewind_time := timestamp - (peer_rtt_ms / 2000.0)  # Half RTT in seconds
+	var rewound_players: Dictionary = {}  # peer_id -> {node, original_pos}
+
+	if peer_rtt_ms > 0.0:
+		for peer_id in NetworkSync.lag_comp_instances:
+			if peer_id == sender_id:
+				continue
+			var lag_comp: LagCompensation = NetworkSync.lag_comp_instances[peer_id]
+			var hist := lag_comp.get_position_at_time(peer_id, rewind_time)
+			if hist.is_empty():
+				continue
+			var target_node := _get_player_node(peer_id)
+			if not target_node:
+				continue
+			rewound_players[peer_id] = {
+				"node": target_node,
+				"original_pos": target_node.global_position,
+			}
+			target_node.global_position = hist["position"]
+
+	# Raycast on server (against rewound positions)
 	var space := shooter.get_world_3d().direct_space_state
 	var query := PhysicsRayQueryParameters3D.create(
 		cam_origin, cam_origin + dir * weapon.max_range
 	)
 	query.exclude = [shooter.get_rid()]
 	var hit := space.intersect_ray(query)
+
+	# --- Restore original positions ---
+	for peer_id in rewound_players:
+		var data: Dictionary = rewound_players[peer_id]
+		(data["node"] as CharacterBody3D).global_position = data["original_pos"]
 
 	var end_point: Vector3 = hit["position"] if not hit.is_empty() else cam_origin + dir * weapon.max_range
 

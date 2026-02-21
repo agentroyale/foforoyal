@@ -44,6 +44,9 @@ var _touch_controls: Control = null
 var _interaction_ray: PlayerInteraction = null
 var _item_use_system: ItemUseSystem = null
 var _use_progress_bar: ProgressBar = null
+var _ping_label: Label = null
+var _net_overlay: VBoxContainer = null
+var _net_overlay_visible := false
 
 
 func _ready() -> void:
@@ -52,6 +55,8 @@ func _ready() -> void:
 	_create_zone_ui()
 	_create_pickup_label()
 	_create_use_progress_bar()
+	_create_ping_label()
+	_create_net_overlay()
 	_connect_build_signals.call_deferred()
 	_connect_hotbar.call_deferred()
 	_setup_death_screen.call_deferred()
@@ -113,6 +118,137 @@ func _create_pickup_label() -> void:
 	_pickup_label.add_theme_color_override("font_color", Color(0.9, 0.85, 0.6))
 	_pickup_label.visible = false
 	add_child(_pickup_label)
+
+
+func _create_ping_label() -> void:
+	_ping_label = Label.new()
+	_ping_label.name = "PingLabel"
+	_ping_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	_ping_label.offset_left = 10.0
+	_ping_label.offset_top = 30.0
+	_ping_label.offset_right = 120.0
+	_ping_label.offset_bottom = 50.0
+	_ping_label.add_theme_font_size_override("font_size", 14)
+	_ping_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.8))
+	_ping_label.visible = false
+	add_child(_ping_label)
+	# Connect to RTT updates
+	if NetworkManager:
+		NetworkManager.rtt_updated.connect(_on_rtt_updated)
+
+
+func _on_rtt_updated(rtt_ms: float) -> void:
+	if _ping_label:
+		_ping_label.text = "%dms" % int(rtt_ms)
+		_ping_label.visible = true
+		# Color based on ping quality
+		if rtt_ms < 60.0:
+			_ping_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4, 0.8))
+		elif rtt_ms < 120.0:
+			_ping_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.3, 0.8))
+		else:
+			_ping_label.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3, 0.8))
+
+
+func _create_net_overlay() -> void:
+	_net_overlay = VBoxContainer.new()
+	_net_overlay.name = "NetOverlay"
+	_net_overlay.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	_net_overlay.offset_left = 10.0
+	_net_overlay.offset_top = 55.0
+	_net_overlay.offset_right = 260.0
+	_net_overlay.offset_bottom = 250.0
+	_net_overlay.visible = false
+
+	# Background panel
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(0.0, 0.0, 0.0, 0.6)
+	bg.set_corner_radius_all(4)
+	bg.set_content_margin_all(6)
+
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", bg)
+	_net_overlay.add_child(panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 2)
+	panel.add_child(vbox)
+
+	# Create 8 metric labels
+	var labels := ["NET STATS (F3)", "RTT: --", "Jitter: --", "Loss: --",
+		"Buffer: --", "FPS: --", "Physics: --", "Peers: --"]
+	for text in labels:
+		var lbl := Label.new()
+		lbl.text = text
+		lbl.add_theme_font_size_override("font_size", 12)
+		lbl.add_theme_color_override("font_color", Color(0.0, 1.0, 0.4, 0.9))
+		vbox.add_child(lbl)
+
+	add_child(_net_overlay)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_F3:
+			_net_overlay_visible = not _net_overlay_visible
+			if _net_overlay:
+				_net_overlay.visible = _net_overlay_visible
+
+
+func _update_net_overlay() -> void:
+	if not _net_overlay or not _net_overlay.visible:
+		return
+	var panel := _net_overlay.get_child(0) as PanelContainer
+	if not panel:
+		return
+	var vbox := panel.get_child(0) as VBoxContainer
+	if not vbox or vbox.get_child_count() < 8:
+		return
+
+	var labels: Array[Label] = []
+	for i in range(vbox.get_child_count()):
+		labels.append(vbox.get_child(i) as Label)
+
+	# RTT
+	var rtt := NetworkManager.local_rtt
+	labels[1].text = "RTT: %.0fms" % rtt
+	if rtt < 60.0:
+		labels[1].add_theme_color_override("font_color", Color(0.0, 1.0, 0.4))
+	elif rtt < 120.0:
+		labels[1].add_theme_color_override("font_color", Color(1.0, 1.0, 0.3))
+	else:
+		labels[1].add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+
+	# Jitter
+	labels[2].text = "Jitter: %.1fms" % NetworkManager.local_jitter
+
+	# Packet loss
+	var loss_pct := NetworkManager.local_packet_loss * 100.0
+	labels[3].text = "Loss: %.1f%%" % loss_pct
+	if loss_pct > 5.0:
+		labels[3].add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+	else:
+		labels[3].add_theme_color_override("font_color", Color(0.0, 1.0, 0.4))
+
+	# Interpolation buffer size (from first remote player's NetworkInterpolation)
+	var buf_size := 0
+	for p in get_tree().get_nodes_in_group("players"):
+		if p is CharacterBody3D and not p.is_multiplayer_authority():
+			var interp := p.get_node_or_null("NetworkInterpolation") as NetworkInterpolation
+			if interp:
+				buf_size = interp.get_buffer_size()
+				break
+	labels[4].text = "Buffer: %d/%d" % [buf_size, NetworkInterpolation.BUFFER_SIZE]
+
+	# FPS
+	labels[5].text = "FPS: %d" % Engine.get_frames_per_second()
+
+	# Physics tick time
+	var physics_ms := Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0
+	labels[6].text = "Physics: %.2fms" % physics_ms
+
+	# Peer count
+	labels[7].text = "Peers: %d" % NetworkManager.get_peer_count()
 
 
 func _create_use_progress_bar() -> void:
@@ -266,6 +402,9 @@ func _process(_delta: float) -> void:
 
 	# Update zone UI
 	_update_zone_ui()
+
+	# Update net overlay
+	_update_net_overlay()
 
 	# Pickup label fade
 	if _pickup_label and _pickup_label.visible:

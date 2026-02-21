@@ -5,7 +5,7 @@ extends Node3D
 ## In BR mode, also spawns lobby area, zone controller, drop controller, and victory screen.
 
 const PLAYER_SCENE := preload("res://scenes/player/player.tscn")
-const BOT_COUNT := 12
+const BOT_COUNT := 4
 const BOT_SCENE := preload("res://scenes/ai/bot.tscn")
 
 var _zone_controller: Node = null

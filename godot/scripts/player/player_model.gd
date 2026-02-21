@@ -42,6 +42,10 @@ const SOLDIER_ANIM_LIBS := {
 const SPINE_PITCH_WEIGHT := 0.4
 const CHEST_PITCH_WEIGHT := 0.6
 
+# Static animation library cache — avoids re-loading 6 GLBs per player/bot spawn
+static var _kaykit_anim_cache: Dictionary = {}  # lib_name -> AnimationLibrary
+static var _kaykit_cache_ready: bool = false
+
 var _anim_player: AnimationPlayer
 var _current_anim := ""
 var _skeleton: Skeleton3D
@@ -454,23 +458,32 @@ func _setup_animations() -> void:
 
 
 func _setup_kaykit_animations() -> void:
-	for lib_name in ANIM_LIBS:
-		var path: String = ANIM_LIBS[lib_name]
-		if not ResourceLoader.exists(path):
-			continue
-		var scene := load(path) as PackedScene
-		if not scene:
-			continue
-		var inst := scene.instantiate()
-		var src_player := _find_anim_player(inst)
-		if src_player:
-			for src_lib_name in src_player.get_animation_library_list():
-				var lib := src_player.get_animation_library(src_lib_name)
-				var dup_lib := lib.duplicate(true) as AnimationLibrary
-				_ensure_loops(dup_lib)
-				_anim_player.add_animation_library(lib_name, dup_lib)
-				break
-		inst.free()
+	# Build cache on first load, then duplicate from cache for subsequent players
+	if not _kaykit_cache_ready:
+		for lib_name in ANIM_LIBS:
+			var path: String = ANIM_LIBS[lib_name]
+			if not ResourceLoader.exists(path):
+				continue
+			var scene := load(path) as PackedScene
+			if not scene:
+				continue
+			var inst := scene.instantiate()
+			var src_player := _find_anim_player(inst)
+			if src_player:
+				for src_lib_name in src_player.get_animation_library_list():
+					var lib := src_player.get_animation_library(src_lib_name)
+					var dup_lib := lib.duplicate(true) as AnimationLibrary
+					_ensure_loops(dup_lib)
+					_kaykit_anim_cache[lib_name] = dup_lib
+					break
+			inst.free()
+		_kaykit_cache_ready = true
+
+	# Use cached libraries (duplicate so each player has independent state)
+	for lib_name in _kaykit_anim_cache:
+		var cached: AnimationLibrary = _kaykit_anim_cache[lib_name]
+		var lib := cached.duplicate(true) as AnimationLibrary
+		_anim_player.add_animation_library(lib_name, lib)
 
 
 func _setup_soldier_animations() -> void:

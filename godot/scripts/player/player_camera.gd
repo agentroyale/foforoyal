@@ -68,6 +68,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
+	delta = minf(delta, 0.1)  # Cap delta to prevent overshoot after freeze/alt-tab
 	# Consume touch camera delta (mobile)
 	_apply_touch_camera_delta()
 

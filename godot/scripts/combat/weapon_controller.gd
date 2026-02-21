@@ -13,6 +13,7 @@ signal spread_changed(spread_degrees: float)
 var _fire_timer: float = 0.0
 var _can_fire: bool = true
 var _is_reloading: bool = false
+var _fire_seq: int = 0
 var _reload_timer: float = 0.0
 var _current_ammo: int = 0
 var _shot_count: int = 0
@@ -117,6 +118,7 @@ func _fire_networked(weapon: WeaponData) -> void:
 	var cam_origin := camera.global_position
 	var cam_dir := -camera.global_basis.z
 	var timestamp := Time.get_ticks_msec() / 1000.0
+	_fire_seq += 1
 
 	# Local VFX (tracer/shell happen immediately for responsiveness)
 	match weapon.weapon_type:
@@ -133,7 +135,7 @@ func _fire_networked(weapon: WeaponData) -> void:
 	var cn := Engine.get_singleton("CombatNetcode") if Engine.has_singleton("CombatNetcode") else get_node_or_null("/root/CombatNetcode")
 	if cn:
 		cn.request_fire.rpc_id(1, cam_origin, cam_dir,
-			weapon.weapon_type, _pending_shot_spread, timestamp)
+			weapon.weapon_type, _pending_shot_spread, timestamp, _fire_seq)
 
 
 func _is_multiplayer_active() -> bool:

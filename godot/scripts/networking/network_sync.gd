@@ -45,6 +45,9 @@ static var _peer_positions: Dictionary = {}  # int -> Vector3
 static var _rebuild_timer: float = 0.0
 static var _grid_initialized: bool = false
 
+# Lag compensation registry (server-only, static so CombatNetcode can access)
+static var lag_comp_instances: Dictionary = {}  # peer_id -> LagCompensation
+
 
 func _ready() -> void:
 	var player := get_parent() as CharacterBody3D
@@ -62,6 +65,8 @@ func _ready() -> void:
 	# Server tracks all player positions for lag compensation
 	if multiplayer.is_server():
 		_lag_comp = LagCompensation.new()
+		var peer_id := player.get_multiplayer_authority()
+		lag_comp_instances[peer_id] = _lag_comp
 
 	# Local player gets client prediction
 	if player.is_multiplayer_authority() and not multiplayer.is_server():
@@ -70,6 +75,13 @@ func _ready() -> void:
 	_last_validated_pos = player.global_position
 	_last_sent_pos = player.global_position
 	_last_sent_rot = player.rotation.y
+
+
+func _exit_tree() -> void:
+	var player := get_parent() as CharacterBody3D
+	if player and multiplayer.is_server():
+		var peer_id := player.get_multiplayer_authority()
+		lag_comp_instances.erase(peer_id)
 
 
 func _physics_process(delta: float) -> void:
@@ -121,9 +133,10 @@ func _physics_process(delta: float) -> void:
 			_last_sent_pos = pos
 			_last_sent_rot = rot_y
 			_last_sent_pitch = pitch
-			_send_state.rpc(pos, rot_y, pitch)
+			var server_time := Time.get_ticks_msec()
+			_send_state.rpc(pos, rot_y, pitch, server_time)
 			if NetworkMetrics:
-				NetworkMetrics.record_rpc(20)  # ~20 bytes per position sync
+				NetworkMetrics.record_rpc(24)  # ~24 bytes per position sync (added timestamp)
 
 	# Server records positions for lag compensation
 	if multiplayer.is_server() and _lag_comp:
@@ -132,7 +145,7 @@ func _physics_process(delta: float) -> void:
 
 
 @rpc("any_peer", "unreliable_ordered")
-func _send_state(pos: Vector3, rot_y: float, pitch: float) -> void:
+func _send_state(pos: Vector3, rot_y: float, pitch: float, send_time_msec: int = 0) -> void:
 	var player := get_parent() as CharacterBody3D
 	if not player:
 		return
@@ -162,18 +175,19 @@ func _send_state(pos: Vector3, rot_y: float, pitch: float) -> void:
 			if pivot:
 				pivot.rotation.x = pitch
 
-		# Rebroadcast to nearby clients (or all if interest management disabled)
+		# Rebroadcast to nearby clients with server timestamp
+		var server_time := Time.get_ticks_msec()
 		if USE_INTEREST_MANAGEMENT:
 			var nearby := _get_nearby_peers(sender_id)
 			for peer_id in nearby:
 				if peer_id != sender_id and peer_id != 1:
-					_receive_state.rpc_id(peer_id, pos, rot_y, pitch)
+					_receive_state.rpc_id(peer_id, pos, rot_y, pitch, server_time)
 					if NetworkMetrics:
-						NetworkMetrics.record_rpc(20)
+						NetworkMetrics.record_rpc(24)
 		else:
 			for peer_id in NetworkManager.connected_peers:
 				if peer_id != sender_id and peer_id != 1:
-					_receive_state.rpc_id(peer_id, pos, rot_y, pitch)
+					_receive_state.rpc_id(peer_id, pos, rot_y, pitch, server_time)
 
 	# If we're not the server but received this (shouldn't happen with proper routing)
 	elif not player.is_multiplayer_authority():
@@ -181,7 +195,8 @@ func _send_state(pos: Vector3, rot_y: float, pitch: float) -> void:
 
 
 @rpc("authority", "unreliable_ordered")
-func _receive_state(pos: Vector3, rot_y: float, pitch: float) -> void:
+func _receive_state(pos: Vector3, rot_y: float, pitch: float, _server_time_msec: int = 0) -> void:
+	NetworkManager.record_sync_received()
 	_apply_remote_state(pos, rot_y, pitch)
 
 
@@ -190,20 +205,20 @@ func _apply_remote_state(pos: Vector3, rot_y: float, pitch: float) -> void:
 	if not player or player.is_multiplayer_authority():
 		return
 
-	# Snap if too far (teleport/spawn)
+	# Use local receive time for snapshot interpolation buffer
+	var receive_time := Time.get_ticks_msec() as float
+
+	# Snap if too far (teleport/spawn) — feed directly and also add snapshot
 	if player.global_position.distance_to(pos) > POSITION_SNAP_THRESHOLD:
 		player.global_position = pos
 		player.rotation.y = rot_y
 		var pivot := player.get_node_or_null("CameraPivot") as Node3D
 		if pivot:
 			pivot.rotation.x = pitch
-		if _interpolation:
-			_interpolation.set_target(pos, rot_y, pitch)
-		return
 
-	# Normal interpolation
+	# Add to interpolation buffer
 	if _interpolation:
-		_interpolation.set_target(pos, rot_y, pitch)
+		_interpolation.add_snapshot(receive_time, pos, rot_y, pitch)
 
 
 func get_lag_compensation() -> LagCompensation:
@@ -283,3 +298,4 @@ static func clear_interest_data() -> void:
 	_peer_positions.clear()
 	_rebuild_timer = 0.0
 	_grid_initialized = false
+	lag_comp_instances.clear()
