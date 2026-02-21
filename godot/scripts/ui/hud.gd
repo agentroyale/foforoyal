@@ -47,6 +47,7 @@ var _use_progress_bar: ProgressBar = null
 var _ping_label: Label = null
 var _net_overlay: VBoxContainer = null
 var _net_overlay_visible := false
+var _heartbeat_timer: float = 0.0
 
 
 func _ready() -> void:
@@ -406,6 +407,9 @@ func _process(_delta: float) -> void:
 	# Update net overlay
 	_update_net_overlay()
 
+	# Heartbeat at low HP
+	_update_heartbeat(_delta)
+
 	# Pickup label fade
 	if _pickup_label and _pickup_label.visible:
 		_pickup_fade_timer -= _delta
@@ -415,6 +419,7 @@ func _process(_delta: float) -> void:
 
 func _on_damage_taken(_amount: float, damage_type: int) -> void:
 	_last_damage_type = damage_type
+	CombatSfx.play_damage_taken()
 
 
 func _on_healed(_amount: float) -> void:
@@ -460,6 +465,12 @@ func _on_spread_changed(spread_degrees: float) -> void:
 func _on_hit_confirmed(hitzone: int, _is_kill: bool) -> void:
 	if crosshair:
 		crosshair.show_hitmarker(hitzone == HitzoneSystem.Hitzone.HEAD)
+	if _is_kill:
+		CombatSfx.play_kill_confirm()
+	elif hitzone == HitzoneSystem.Hitzone.HEAD:
+		CombatSfx.play_hit_headshot()
+	else:
+		CombatSfx.play_hit_body()
 
 
 func _update_zone_ui() -> void:
@@ -634,6 +645,20 @@ func _update_stability_display() -> void:
 		stability_label.visible = true
 	else:
 		stability_label.visible = false
+
+
+func _update_heartbeat(delta: float) -> void:
+	if not _health_system or _health_system.is_dead:
+		return
+	var hp_pct := _health_system.current_hp / _health_system.max_hp
+	if hp_pct >= 0.25:
+		_heartbeat_timer = 0.0
+		return
+	var interval := lerpf(0.6, 1.2, hp_pct / 0.25)
+	_heartbeat_timer += delta
+	if _heartbeat_timer >= interval:
+		_heartbeat_timer -= interval
+		CombatSfx.play_heartbeat()
 
 
 func _find_local_player() -> CharacterBody3D:

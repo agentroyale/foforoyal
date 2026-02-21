@@ -31,6 +31,8 @@ NetworkMetrics="*res://scripts/networking/network_metrics.gd"
 MobileInput="*res://scripts/autoload/mobile_input.gd"
 MobilePerformance="*res://scripts/autoload/mobile_performance.gd"
 AutoUpdater="*res://scripts/autoload/auto_updater.gd"
+FootstepSfx="*res://scripts/audio/footstep_sfx.gd"
+CombatSfx="*res://scripts/audio/combat_sfx.gd"
 
 [display]
 

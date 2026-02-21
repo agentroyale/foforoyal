@@ -196,6 +196,11 @@ func _do_hitscan(weapon: WeaponData) -> void:
 	var is_kill := not was_dead and hs.is_dead
 	hit_confirmed.emit(hitzone, is_kill)
 
+	# Floating damage number
+	var dn := DamageNumber.create(dmg, hit_point, hitzone)
+	if get_tree() and get_tree().current_scene:
+		get_tree().current_scene.add_child(dn)
+
 
 func _do_melee(weapon: WeaponData) -> void:
 	var camera := get_parent().get_node_or_null("CameraPivot/Camera3D") as Camera3D

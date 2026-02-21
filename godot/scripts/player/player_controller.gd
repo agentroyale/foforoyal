@@ -40,6 +40,8 @@ var movement_disabled: bool = false
 var _is_replaying: bool = false
 var _prediction: ClientPrediction = null
 var _visual_offset: Vector3 = Vector3.ZERO
+var _was_on_floor: bool = true
+var _step_timer: float = 0.0
 
 # Network state for remote players (set by NetworkSync)
 var remote_on_floor: bool = true
@@ -150,6 +152,9 @@ func _physics_process(delta: float) -> void:
 			"is_crouching": is_crouching,
 		}
 		_prediction.record_input(input, state)
+	# Footstep audio
+	if not _is_replaying:
+		_update_footsteps(delta)
 	# Decay visual offset (smoothing corrections)
 	if _visual_offset.length() > 0.01:
 		_visual_offset *= 0.85
@@ -306,6 +311,42 @@ func calculate_fall_damage(fall_speed: float) -> float:
 	if fall_speed <= FALL_DAMAGE_THRESHOLD:
 		return 0.0
 	return (fall_speed - FALL_DAMAGE_THRESHOLD) * FALL_DAMAGE_MULTIPLIER
+
+
+func _update_footsteps(delta: float) -> void:
+	# Landing detection
+	if is_on_floor() and not _was_on_floor:
+		var fall_speed := absf(_previous_velocity_y)
+		if fall_speed > 2.0:
+			FootstepSfx.play_land(fall_speed)
+	_was_on_floor = is_on_floor()
+
+	if not is_on_floor():
+		_step_timer = 0.0
+		return
+
+	var h_speed := Vector2(velocity.x, velocity.z).length()
+	if h_speed < 0.5:
+		_step_timer = 0.0
+		return
+
+	var interval: float
+	if is_crouching:
+		interval = FootstepSfx.CROUCH_INTERVAL
+	elif current_speed >= SPRINT_SPEED:
+		interval = FootstepSfx.RUN_INTERVAL
+	else:
+		interval = FootstepSfx.WALK_INTERVAL
+
+	_step_timer += delta
+	if _step_timer >= interval:
+		_step_timer -= interval
+		if is_crouching:
+			FootstepSfx.play_crouch()
+		elif current_speed >= SPRINT_SPEED:
+			FootstepSfx.play_run()
+		else:
+			FootstepSfx.play_walk()
 
 
 func _set_collision_height(height: float) -> void:

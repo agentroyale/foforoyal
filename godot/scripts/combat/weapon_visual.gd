@@ -11,6 +11,8 @@ const HAND_BONE_MIXAMO := "mixamorig_RightHand"
 var _bone_attachment: BoneAttachment3D
 var _muzzle_marker: Marker3D
 var _pivot: Node3D  ## weapon model pivot (for adjust mode)
+var _base_pivot_position: Vector3 = Vector3.ZERO
+var _bob_time: float = 0.0
 
 
 func setup(skeleton: Skeleton3D, weapon: WeaponData) -> void:
@@ -42,6 +44,10 @@ func setup(skeleton: Skeleton3D, weapon: WeaponData) -> void:
 		_setup_from_scene(weapon)
 	else:
 		_setup_primitive(weapon)
+
+	# Save base pivot position for bob
+	if _pivot:
+		_base_pivot_position = _pivot.position
 
 	# Muzzle point — child of pivot so it follows the weapon model
 	_muzzle_marker = Marker3D.new()
@@ -148,6 +154,39 @@ func get_muzzle_global_position() -> Vector3:
 func set_visible(vis: bool) -> void:
 	if _bone_attachment and is_instance_valid(_bone_attachment):
 		_bone_attachment.visible = vis
+
+
+func update_bob(delta: float, h_speed: float, is_crouching: bool) -> void:
+	if not _pivot or not is_instance_valid(_pivot):
+		return
+	if h_speed < 0.5:
+		_bob_time = 0.0
+		_pivot.position = _pivot.position.lerp(_base_pivot_position, minf(10.0 * delta, 1.0))
+		return
+
+	var freq: float
+	var amp_x: float
+	var amp_y: float
+	if h_speed > 4.0:
+		freq = 12.0
+		amp_x = 0.004
+		amp_y = 0.006
+	else:
+		freq = 8.0
+		amp_x = 0.002
+		amp_y = 0.003
+
+	if is_crouching:
+		amp_x *= 0.5
+		amp_y *= 0.5
+
+	_bob_time += delta * freq
+	var offset := Vector3(
+		sin(_bob_time) * amp_x,
+		sin(_bob_time * 2.0) * amp_y,
+		0.0
+	)
+	_pivot.position = _base_pivot_position + offset
 
 
 func get_pivot() -> Node3D:

@@ -401,6 +401,17 @@ func _process(delta: float) -> void:
 		else:
 			_play_anim(_anim_map.get("idle", ""))
 
+	# Weapon bob during locomotion
+	if _weapon_visual:
+		var is_remote := multiplayer.has_multiplayer_peer() and not player.is_multiplayer_authority()
+		var h_speed: float
+		if is_remote and player is PlayerController:
+			h_speed = player.network_move_speed
+		else:
+			h_speed = Vector2(player.velocity.x, player.velocity.z).length()
+		var crouching: bool = player is PlayerController and player.is_crouching
+		_weapon_visual.update_bob(delta, h_speed, crouching)
+
 	# Upper body aim override (always applies, even during one-shots)
 	_apply_upper_body_aim()
 
