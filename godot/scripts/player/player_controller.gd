@@ -38,6 +38,12 @@ var current_speed := WALK_SPEED
 var _previous_velocity_y: float = 0.0
 var movement_disabled: bool = false
 
+# Network state for remote players (set by NetworkSync)
+var remote_on_floor: bool = true
+var network_is_aiming: bool = false
+var network_weapon_type: int = -1
+var network_move_speed: float = 0.0
+
 @onready var collision_shape: CollisionShape3D = $CollisionShape3D
 @onready var camera_pivot: Node3D = $CameraPivot
 

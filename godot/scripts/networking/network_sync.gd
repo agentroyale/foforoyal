@@ -147,9 +147,14 @@ func _physics_process(delta: float) -> void:
 			_last_sent_rot = rot_y
 			_last_sent_pitch = pitch
 			var server_time := Time.get_ticks_msec()
-			_send_state.rpc(pos, rot_y, pitch, server_time)
+
+			# Pack animation state: speed + flags
+			var h_speed := Vector2(player.velocity.x, player.velocity.z).length()
+			var anim_flags := _pack_anim_flags(player)
+
+			_send_state.rpc(pos, rot_y, pitch, server_time, h_speed, anim_flags)
 			if NetworkMetrics:
-				NetworkMetrics.record_rpc(24)  # ~24 bytes per position sync (added timestamp)
+				NetworkMetrics.record_rpc(28)  # position + anim state
 
 	# Server records positions for lag compensation
 	if multiplayer.is_server() and _lag_comp:
@@ -158,7 +163,7 @@ func _physics_process(delta: float) -> void:
 
 
 @rpc("any_peer", "unreliable_ordered")
-func _send_state(pos: Vector3, rot_y: float, pitch: float, send_time_msec: int = 0) -> void:
+func _send_state(pos: Vector3, rot_y: float, pitch: float, send_time_msec: int = 0, h_speed: float = 0.0, anim_flags: int = 0) -> void:
 	var player := get_parent() as CharacterBody3D
 	if not player:
 		return
@@ -194,29 +199,37 @@ func _send_state(pos: Vector3, rot_y: float, pitch: float, send_time_msec: int =
 			var nearby := _get_nearby_peers(sender_id)
 			for peer_id in nearby:
 				if peer_id != sender_id and peer_id != 1:
-					_receive_state.rpc_id(peer_id, pos, rot_y, pitch, server_time)
+					_receive_state.rpc_id(peer_id, pos, rot_y, pitch, server_time, h_speed, anim_flags)
 					if NetworkMetrics:
-						NetworkMetrics.record_rpc(24)
+						NetworkMetrics.record_rpc(28)
 		else:
 			for peer_id in NetworkManager.connected_peers:
 				if peer_id != sender_id and peer_id != 1:
-					_receive_state.rpc_id(peer_id, pos, rot_y, pitch, server_time)
+					_receive_state.rpc_id(peer_id, pos, rot_y, pitch, server_time, h_speed, anim_flags)
 
 	# If we're not the server but received this (shouldn't happen with proper routing)
 	elif not player.is_multiplayer_authority():
-		_apply_remote_state(pos, rot_y, pitch)
+		_apply_remote_state(pos, rot_y, pitch, h_speed, anim_flags)
 
 
 @rpc("authority", "unreliable_ordered")
-func _receive_state(pos: Vector3, rot_y: float, pitch: float, _server_time_msec: int = 0) -> void:
+func _receive_state(pos: Vector3, rot_y: float, pitch: float, _server_time_msec: int = 0, h_speed: float = 0.0, anim_flags: int = 0) -> void:
 	NetworkManager.record_sync_received()
-	_apply_remote_state(pos, rot_y, pitch)
+	_apply_remote_state(pos, rot_y, pitch, h_speed, anim_flags)
 
 
-func _apply_remote_state(pos: Vector3, rot_y: float, pitch: float) -> void:
+func _apply_remote_state(pos: Vector3, rot_y: float, pitch: float, h_speed: float = 0.0, anim_flags: int = 0) -> void:
 	var player := get_parent() as CharacterBody3D
 	if not player or player.is_multiplayer_authority():
 		return
+
+	# Unpack animation state onto PlayerController
+	if player is PlayerController:
+		player.is_crouching = bool(anim_flags & 1)
+		player.network_is_aiming = bool(anim_flags & 2)
+		player.remote_on_floor = bool(anim_flags & 4)
+		player.network_weapon_type = (anim_flags >> 4) & 0xF
+		player.network_move_speed = h_speed
 
 	# Use local receive time for snapshot interpolation buffer
 	var receive_time := Time.get_ticks_msec() as float
@@ -312,3 +325,24 @@ static func clear_interest_data() -> void:
 	_rebuild_timer = 0.0
 	_grid_initialized = false
 	lag_comp_instances.clear()
+
+
+## Pack animation-relevant state into a single int for network sync.
+## Bits: 0=crouching, 1=aiming, 2=on_floor, 4-7=weapon_type
+func _pack_anim_flags(player: CharacterBody3D) -> int:
+	var flags := 0
+	if player is PlayerController and player.is_crouching:
+		flags |= 1
+	# Check aiming via camera
+	var cam := player.get_node_or_null("CameraPivot")
+	if cam and cam is PlayerCamera and cam.is_aiming:
+		flags |= 2
+	if player.is_on_floor():
+		flags |= 4
+	# Pack weapon type in bits 4-7 (from inventory active item)
+	var inv := player.get_node_or_null("PlayerInventory") as PlayerInventory
+	if inv:
+		var item := inv.get_active_item()
+		if item is WeaponData:
+			flags |= ((item as WeaponData).weapon_type & 0xF) << 4
+	return flags

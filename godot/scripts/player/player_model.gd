@@ -337,18 +337,36 @@ func _process(delta: float) -> void:
 
 	# Locomotion (skip if one-shot or fire burst is playing)
 	if not _one_shot_playing and _fire_burst_timer <= 0.0:
-		var vel := player.velocity
-		var horizontal_speed := Vector2(vel.x, vel.z).length()
+		# Derive animation state from local or network sources
+		var is_remote := multiplayer.has_multiplayer_peer() and not player.is_multiplayer_authority()
+		var horizontal_speed: float
+		var on_floor: bool
+		var is_aiming: bool
+		var is_crouching: bool
+
+		if is_remote and player is PlayerController:
+			horizontal_speed = player.network_move_speed
+			on_floor = player.remote_on_floor
+			is_aiming = player.network_is_aiming
+			is_crouching = player.is_crouching
+			# Sync weapon type from network
+			if player.network_weapon_type >= 0:
+				_equipped_weapon_type = player.network_weapon_type
+		else:
+			var vel := player.velocity
+			horizontal_speed = Vector2(vel.x, vel.z).length()
+			on_floor = player.is_on_floor()
+			is_aiming = _is_player_aiming()
+			is_crouching = player is PlayerController and player.is_crouching
+
 		var has_ranged := _equipped_weapon_type in [
 			WeaponData.WeaponType.PISTOL, WeaponData.WeaponType.SMG,
 			WeaponData.WeaponType.AR, WeaponData.WeaponType.SHOTGUN,
 			WeaponData.WeaponType.SNIPER,
 		]
 		var has_bow := _equipped_weapon_type == WeaponData.WeaponType.BOW
-		var is_aiming := _is_player_aiming()
-		var is_crouching: bool = player is PlayerController and player.is_crouching
 
-		if not player.is_on_floor():
+		if not on_floor:
 			if has_ranged:
 				_play_anim(_anim_map.get("run_rifle", ""))
 			elif has_bow:
