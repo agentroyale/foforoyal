@@ -75,9 +75,9 @@ func test_gravity_applied_when_airborne() -> void:
 	# Player starts with 0 velocity
 	player.velocity = Vector3.ZERO
 
-	# Simulate not on floor — call _apply_gravity directly
-	# Since player is not added to physics world with floor, is_on_floor() = false
-	player._apply_gravity(0.1)
+	# Simulate one tick with no input — gravity should apply (not on floor)
+	var input := {"direction": Vector2.ZERO, "jump": false, "sprint": false, "crouch": false}
+	player.simulate_tick(input, 0.1)
 
 	assert_lt(player.velocity.y, 0.0, "Gravity should make velocity.y negative when airborne")
 	assert_almost_eq(player.velocity.y, -1.2, 0.01, "After 0.1s, velocity.y should be -1.2 (12.0 * 0.1)")
@@ -86,8 +86,10 @@ func test_gravity_applied_when_airborne() -> void:
 func test_jump_only_when_grounded() -> void:
 	# Player is NOT on the floor (no physics world), so jump should NOT work
 	player.velocity = Vector3.ZERO
-	player._handle_jump() # This checks is_on_floor() internally
+	var input := {"direction": Vector2.ZERO, "jump": true, "sprint": false, "crouch": false}
+	player.simulate_tick(input, 1.0 / 60.0)
 
-	assert_eq(player.velocity.y, 0.0, "Jump should not apply when not grounded")
+	# is_on_floor() is false (no physics world), so jump should not apply
+	assert_lte(player.velocity.y, 0.0, "Jump should not apply when not grounded")
 	# Verify jump velocity constant is correct
 	assert_eq(PlayerController.JUMP_VELOCITY, 5.0, "Jump velocity should be 5.0")

@@ -10,22 +10,20 @@ const NetworkManagerScript = preload("res://scripts/networking/network_manager.g
 func test_client_prediction_no_correction() -> void:
 	var pred := ClientPrediction.new()
 
-	# Record 10 inputs
+	# Record 10 inputs with state
 	for i in 10:
-		pred.record_input(Vector2(0, -1), false, false, false)
+		var input := {"direction": Vector2(0, -1), "jump": false, "sprint": false, "crouch": false}
+		var state := {"position": Vector3(0, 0, -float(i + 1)), "velocity_y": 0.0, "is_crouching": false}
+		pred.record_input(input, state)
 
 	assert_eq(pred.get_sequence(), 10, "Should have recorded 10 inputs")
 	assert_eq(pred.get_buffer_size(), 10, "Buffer should have 10 entries")
 
-	# Simulate server ack at sequence 5 with matching position
-	var client_pos := Vector3(0, 0, -5)
-	var server_pos := Vector3(0, 0, -5)
-
-	# No correction needed when positions match
-	assert_false(
-		ClientPrediction.needs_correction(client_pos, server_pos),
-		"No correction when positions match"
-	)
+	# Server ack at sequence 5 with matching position — no correction needed
+	var server_pos := Vector3(0, 0, -6)  # matches state at seq 5
+	var result := pred.reconcile(server_pos, 0.0, 5, false)
+	assert_false(result["needs_correction"],
+		"No correction when server matches predicted position")
 
 
 # ─── Test 2: Client Prediction With Correction ───
@@ -34,19 +32,15 @@ func test_client_prediction_with_correction() -> void:
 	var pred := ClientPrediction.new()
 
 	for i in 10:
-		pred.record_input(Vector2(0, -1), false, false, false)
+		var input := {"direction": Vector2(0, -1), "jump": false, "sprint": false, "crouch": false}
+		var state := {"position": Vector3(0, 0, -float(i + 1)), "velocity_y": 0.0, "is_crouching": false}
+		pred.record_input(input, state)
 
-	# Server position differs significantly
-	var client_pos := Vector3(0, 0, -5)
-	var server_pos := Vector3(2, 0, -5)  # 2m off
-
-	assert_true(
-		ClientPrediction.needs_correction(client_pos, server_pos),
-		"Correction needed when > 0.1m difference"
-	)
+	# Server position differs significantly (2m off from predicted at seq 5)
+	var server_pos := Vector3(2, 0, -6)
 
 	# Reconcile: should trim buffer up to acked sequence
-	var result := pred.reconcile(server_pos, 5)
+	var result := pred.reconcile(server_pos, 0.0, 5, false)
 	assert_true(result["needs_correction"], "Reconcile indicates correction needed")
 	assert_eq(result["server_position"], server_pos, "Returns server position")
 	# After acking sequence 5, inputs 0-5 removed, 6-9 remain = 4
@@ -192,10 +186,47 @@ func test_authority_guards_singleplayer() -> void:
 func test_client_prediction_buffer_overflow() -> void:
 	var pred := ClientPrediction.new()
 
-	# Fill buffer past max size (64)
-	for i in 100:
-		pred.record_input(Vector2(0, -1), false, false, false)
+	# Fill buffer past max size (128)
+	for i in 200:
+		var input := {"direction": Vector2(0, -1), "jump": false, "sprint": false, "crouch": false}
+		var state := {"position": Vector3(0, 0, -float(i)), "velocity_y": 0.0, "is_crouching": false}
+		pred.record_input(input, state)
 
-	assert_eq(pred.get_sequence(), 100, "Sequence should be 100")
+	assert_eq(pred.get_sequence(), 200, "Sequence should be 200")
 	assert_eq(pred.get_buffer_size(), ClientPrediction.BUFFER_SIZE,
 		"Buffer should be capped at BUFFER_SIZE (%d)" % ClientPrediction.BUFFER_SIZE)
+
+
+# ─── Test 9: Server Validation V2 Timing-Based ───
+
+func test_server_validation_v2_timing() -> void:
+	ServerValidation.clear_timing_data()
+
+	# First call defaults to 50ms elapsed. 0.3m/0.05s = 6 m/s < 15 max
+	var valid := ServerValidation.validate_movement_v2(
+		100, Vector3.ZERO, Vector3(0.3, 0, 0)
+	)
+	assert_true(valid, "Normal movement should pass v2 validation")
+
+	# Teleport: 100m in ~0ms (clamped to 10ms) = 10000 m/s — should fail
+	var cheat := ServerValidation.validate_movement_v2(
+		101, Vector3.ZERO, Vector3(100, 0, 0)
+	)
+	assert_false(cheat, "Teleport-speed movement should fail v2 validation")
+
+	ServerValidation.clear_timing_data()
+
+
+# ─── Test 10: Client Prediction Reconcile No Correction Below Threshold ───
+
+func test_client_prediction_below_threshold() -> void:
+	var pred := ClientPrediction.new()
+
+	var input := {"direction": Vector2(0, -1), "jump": false, "sprint": false, "crouch": false}
+	var state := {"position": Vector3(0, 0, -1), "velocity_y": 0.0, "is_crouching": false}
+	pred.record_input(input, state)
+
+	# Server pos only 0.1m off — below CORRECTION_THRESHOLD (0.5m)
+	var result := pred.reconcile(Vector3(0.1, 0, -1), 0.0, 0, false)
+	assert_false(result["needs_correction"],
+		"Should not correct when error < CORRECTION_THRESHOLD")

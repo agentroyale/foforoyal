@@ -37,6 +37,9 @@ var is_crouching := false
 var current_speed := WALK_SPEED
 var _previous_velocity_y: float = 0.0
 var movement_disabled: bool = false
+var _is_replaying: bool = false
+var _prediction: ClientPrediction = null
+var _visual_offset: Vector3 = Vector3.ZERO
 
 # Network state for remote players (set by NetworkSync)
 var remote_on_floor: bool = true
@@ -137,28 +140,101 @@ func _physics_process(delta: float) -> void:
 		return
 	if movement_disabled:
 		return
+	var input := _gather_local_input()
+	simulate_tick(input, delta)
+	# Record for client-side prediction (multiplayer only)
+	if _prediction:
+		var state := {
+			"position": global_position,
+			"velocity_y": velocity.y,
+			"is_crouching": is_crouching,
+		}
+		_prediction.record_input(input, state)
+	# Decay visual offset (smoothing corrections)
+	if _visual_offset.length() > 0.01:
+		_visual_offset *= 0.85
+	else:
+		_visual_offset = Vector3.ZERO
+
+
+func _process(_delta: float) -> void:
+	# Apply visual offset to model (not CharacterBody3D position)
+	var model := get_node_or_null("PlayerModel") as Node3D
+	if not model:
+		return
+	if _visual_offset.length() > 0.001:
+		model.position = _visual_offset
+	else:
+		model.position = Vector3.ZERO
+
+
+func apply_server_correction(server_pos: Vector3, server_vel_y: float,
+		server_seq: int, server_is_crouching: bool) -> void:
+	if not _prediction:
+		return
+	var result := _prediction.reconcile(server_pos, server_vel_y, server_seq,
+			server_is_crouching)
+	if not result["needs_correction"]:
+		return
+
+	var error := (result["server_position"] as Vector3).distance_to(global_position)
+
+	if error > ClientPrediction.SNAP_THRESHOLD:
+		# Teleport (spawn, zone damage tp, etc)
+		global_position = result["server_position"]
+		velocity.y = result["server_velocity_y"]
+		_visual_offset = Vector3.ZERO
+		return
+
+	# Save old predicted position for visual offset
+	var old_pos := global_position
+
+	# Snap to server state
+	global_position = result["server_position"]
+	velocity.y = result["server_velocity_y"]
+	is_crouching = result["server_is_crouching"]
+
+	# Replay pending inputs
+	_is_replaying = true
+	var replay_delta := 1.0 / 60.0
+	for input in result["pending_inputs"]:
+		simulate_tick(input, replay_delta)
+	_is_replaying = false
+
+	# Visual offset = old predicted pos vs new corrected+replayed pos
+	_visual_offset = old_pos - global_position
+
+
+func _gather_local_input() -> Dictionary:
+	return {
+		"direction": Input.get_vector("move_left", "move_right", "move_forward", "move_backward"),
+		"jump": Input.is_action_just_pressed("jump"),
+		"sprint": Input.is_action_pressed("sprint"),
+		"crouch": Input.is_action_pressed("crouch"),
+	}
+
+
+func simulate_tick(input: Dictionary, delta: float) -> void:
 	_previous_velocity_y = velocity.y
-	_apply_gravity(delta)
-	_handle_jump()
-	_handle_crouch(delta)
-	_handle_movement()
-	move_and_slide()
-	_check_fall_damage()
-
-
-func _apply_gravity(delta: float) -> void:
+	# Gravity
 	if not is_on_floor():
 		velocity.y -= GRAVITY * delta
-
-
-func _handle_jump() -> void:
-	if Input.is_action_just_pressed("jump") and is_on_floor() and not is_crouching:
+	# Jump
+	if input.get("jump", false) and is_on_floor() and not is_crouching:
 		velocity.y = JUMP_VELOCITY
+	# Crouch
+	_handle_crouch_from_input(input.get("crouch", false), delta)
+	# Movement
+	_handle_movement_from_input(
+		input.get("direction", Vector2.ZERO),
+		input.get("sprint", false),
+	)
+	move_and_slide()
+	if not _is_replaying:
+		_check_fall_damage()
 
 
-func _handle_crouch(delta: float) -> void:
-	var wants_crouch := Input.is_action_pressed("crouch")
-
+func _handle_crouch_from_input(wants_crouch: bool, delta: float) -> void:
 	if wants_crouch and not is_crouching:
 		is_crouching = true
 		current_speed = CROUCH_SPEED
@@ -172,27 +248,27 @@ func _handle_crouch(delta: float) -> void:
 	collision_shape.position.y = shape.height * 0.5
 
 	# Adjust camera pivot to follow crouch (TPS: keep at head height)
-	var target_y := 1.8 if not is_crouching else 1.1
-	camera_pivot.position.y = lerp(camera_pivot.position.y, target_y, CROUCH_LERP_SPEED * delta)
+	if not _is_replaying:
+		var target_y := 1.8 if not is_crouching else 1.1
+		camera_pivot.position.y = lerp(camera_pivot.position.y, target_y, CROUCH_LERP_SPEED * delta)
 
 
-func _handle_movement() -> void:
-	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
+func _handle_movement_from_input(input_dir: Vector2, wants_sprint: bool) -> void:
 	var direction := (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
 
 	# Sprint only when moving forward, not crouching, and have stamina
 	var stamina: StaminaSystem = get_node_or_null("StaminaSystem") as StaminaSystem
-	var wants_sprint: bool = Input.is_action_pressed("sprint") and not is_crouching and input_dir.y < 0
-	var can_do_sprint: bool = wants_sprint and (stamina == null or stamina.can_sprint())
+	var can_sprint_input: bool = wants_sprint and not is_crouching and input_dir.y < 0
+	var can_do_sprint: bool = can_sprint_input and (stamina == null or stamina.can_sprint())
 
 	if can_do_sprint:
 		current_speed = SPRINT_SPEED
-		if stamina:
+		if stamina and not _is_replaying:
 			stamina.set_draining(true)
 	else:
 		if not is_crouching:
 			current_speed = WALK_SPEED
-		if stamina:
+		if stamina and not _is_replaying:
 			stamina.set_draining(false)
 
 	if direction:
