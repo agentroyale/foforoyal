@@ -54,8 +54,8 @@ func _ready() -> void:
 	if not player:
 		return
 
-	# Remote players get interpolation
-	if not player.is_multiplayer_authority():
+	# Remote players on CLIENTS get interpolation (server sets positions directly)
+	if not player.is_multiplayer_authority() and not multiplayer.is_server():
 		_interpolation = NetworkInterpolation.new()
 		_interpolation.name = "NetworkInterpolation"
 		player.add_child.call_deferred(_interpolation)
@@ -72,6 +72,10 @@ func _ready() -> void:
 	if player.is_multiplayer_authority() and not multiplayer.is_server():
 		_prediction = ClientPrediction.new()
 
+	# When a new peer joins, reset delta compression so we force a full sync
+	if player.is_multiplayer_authority():
+		NetworkManager.player_connected.connect(_on_peer_joined)
+
 	_last_validated_pos = player.global_position
 	_last_sent_pos = player.global_position
 	_last_sent_rot = player.rotation.y
@@ -82,6 +86,15 @@ func _exit_tree() -> void:
 	if player and multiplayer.is_server():
 		var peer_id := player.get_multiplayer_authority()
 		lag_comp_instances.erase(peer_id)
+	if NetworkManager and NetworkManager.player_connected.is_connected(_on_peer_joined):
+		NetworkManager.player_connected.disconnect(_on_peer_joined)
+
+
+## Force full sync on next tick when a new peer joins (defeats delta compression).
+func _on_peer_joined(_peer_id: int) -> void:
+	_last_sent_pos = Vector3(INF, INF, INF)
+	_last_sent_rot = INF
+	_last_sent_pitch = INF
 
 
 func _physics_process(delta: float) -> void:

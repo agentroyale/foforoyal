@@ -9,6 +9,7 @@ const BUFFER_SIZE := 8
 const RENDER_DELAY_MS := 100.0  # 100ms = 2 ticks at 20Hz
 const MAX_EXTRAPOLATION_MS := 200.0  # Max time to extrapolate if buffer starves
 const SNAP_THRESHOLD := 10.0  # Teleport if distance exceeds this
+const SMOOTH_FACTOR := 0.5  # Lerp factor per physics frame (0.5 = halves error each frame)
 
 var _buffer: Array = []  # Array of {time_ms, position, rotation_y, pitch}
 var _initialized := false
@@ -121,14 +122,15 @@ func get_buffer_size() -> int:
 
 
 func _apply_state(player: Node3D, pos: Vector3, rot_y: float, pitch: float) -> void:
-	# Snap if too far (teleport)
+	# Snap if too far (teleport/spawn)
 	if player.global_position.distance_to(pos) > SNAP_THRESHOLD:
 		player.global_position = pos
+		player.rotation.y = rot_y
 	else:
-		player.global_position = pos
-
-	player.rotation.y = rot_y
+		# Smooth lerp on top of interpolation to eliminate micro-jitter
+		player.global_position = player.global_position.lerp(pos, SMOOTH_FACTOR)
+		player.rotation.y = lerp_angle(player.rotation.y, rot_y, SMOOTH_FACTOR)
 
 	var pivot := player.get_node_or_null("CameraPivot") as Node3D
 	if pivot:
-		pivot.rotation.x = pitch
+		pivot.rotation.x = lerpf(pivot.rotation.x, pitch, SMOOTH_FACTOR)
