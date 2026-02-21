@@ -6,7 +6,7 @@ extends Node
 signal settings_changed
 
 const CONFIG_PATH := "user://settings.cfg"
-const GAME_VERSION := "0.1.1"
+const GAME_VERSION := "0.2.0"
 
 ## Gameplay
 var mouse_sensitivity: float = 1.0

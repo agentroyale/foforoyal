@@ -55,11 +55,11 @@ func _connect_buttons() -> void:
 func _setup_version_label() -> void:
 	_version_label = Label.new()
 	_version_label.text = "v%s" % GameSettings.GAME_VERSION
-	_version_label.add_theme_font_size_override("font_size", 12)
-	_version_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 0.7))
+	_version_label.add_theme_font_size_override("font_size", 16)
+	_version_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8, 0.9))
 	_version_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	_version_label.offset_left = -100.0
-	_version_label.offset_top = -30.0
+	_version_label.offset_left = -120.0
+	_version_label.offset_top = -35.0
 	_version_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	add_child(_version_label)
 
@@ -139,7 +139,7 @@ func _on_update_completed() -> void:
 
 
 func _on_update_failed(reason: String) -> void:
-	_update_label.text = "Falha na atualização"
+	_update_label.text = reason if reason != "" else "Falha na atualização"
 	_update_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
 	_update_progress.visible = false
 	play_button.disabled = false
