@@ -28,6 +28,10 @@ func _ready() -> void:
 		NetworkManager.player_disconnected.connect(_on_player_left)
 		for peer_id in NetworkManager.connected_peers:
 			_spawn_player(peer_id)
+		# If we are a client, ask the server to tell us about all existing peers
+		# so we can spawn them. The server has the authoritative list.
+		if not multiplayer.is_server():
+			_request_peer_list.rpc_id(1)
 	else:
 		# Offline testing: spawn a local player
 		_spawn_player(0)
@@ -39,6 +43,9 @@ func _ready() -> void:
 func _spawn_player(peer_id: int) -> void:
 	# Dedicated server (peer 1) has no visual player
 	if peer_id == 1 and multiplayer.is_server():
+		return
+	# Clients do not spawn remote players that have no visual — skip server peer
+	if peer_id == 1:
 		return
 	var players_node := $Players
 	if players_node.has_node(str(peer_id)):
@@ -74,6 +81,14 @@ func _position_and_enable_player(player: CharacterBody3D) -> void:
 
 func _on_player_joined(peer_id: int) -> void:
 	_spawn_player(peer_id)
+	# Server: notify the newly joined client about all already-connected peers
+	if multiplayer.is_server():
+		var existing_peers: Array[int] = []
+		for pid in NetworkManager.connected_peers:
+			if pid != peer_id and pid != 1:
+				existing_peers.append(pid)
+		if not existing_peers.is_empty():
+			_receive_peer_list.rpc_id(peer_id, existing_peers)
 
 
 func _on_player_left(peer_id: int) -> void:
@@ -81,6 +96,27 @@ func _on_player_left(peer_id: int) -> void:
 	if player:
 		player.queue_free()
 		print("[GameWorld] Removed player for peer %d" % peer_id)
+
+
+## Client calls this on the server to request the list of already-connected peers.
+@rpc("any_peer", "reliable")
+func _request_peer_list() -> void:
+	if not multiplayer.is_server():
+		return
+	var requester_id := multiplayer.get_remote_sender_id()
+	var existing_peers: Array[int] = []
+	for pid in NetworkManager.connected_peers:
+		if pid != requester_id and pid != 1:
+			existing_peers.append(pid)
+	if not existing_peers.is_empty():
+		_receive_peer_list.rpc_id(requester_id, existing_peers)
+
+
+## Server sends this to a client with the list of peers already in the game.
+@rpc("authority", "reliable")
+func _receive_peer_list(peer_ids: Array) -> void:
+	for pid in peer_ids:
+		_spawn_player(pid)
 
 
 func _setup_br_systems() -> void:
@@ -159,7 +195,10 @@ func _on_world_ready(_seed: int) -> void:
 		else:
 			_position_and_enable_player(player)
 
-	_spawn_bots(Vector3(spawn_x, 0.0, spawn_z))
+	# Only the server manages bots — clients must not spawn them.
+	# Bots are server-authoritative NPCs; clients just see them via NetworkSync.
+	if not multiplayer.has_multiplayer_peer() or multiplayer.is_server():
+		_spawn_bots_async(Vector3(spawn_x, 0.0, spawn_z))
 
 
 func _position_br_player(player: CharacterBody3D) -> void:
@@ -188,11 +227,16 @@ func _position_br_player(player: CharacterBody3D) -> void:
 	player.set_physics_process(true)
 
 
-func _spawn_bots(center: Vector3) -> void:
+func _spawn_bots_async(center: Vector3) -> void:
+	## Spawns bots one per frame to avoid a multi-second main-thread freeze.
+	## Each bot loads 6 animation GLB files synchronously, so spreading the
+	## cost across frames keeps the game responsive during world startup.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 99999
 	var space := get_world_3d().direct_space_state
 	for i in BOT_COUNT:
+		if not is_inside_tree():
+			return
 		var bot: BotController = BOT_SCENE.instantiate()
 		bot.name = "Bot_%d" % i
 		var glb: String = BotController.CHARACTER_GLBS[rng.randi() % BotController.CHARACTER_GLBS.size()]
@@ -200,6 +244,8 @@ func _spawn_bots(center: Vector3) -> void:
 		add_child(bot)
 		bot.setup(glb, wpn)
 		bot.global_position = _find_clear_spawn(center, rng, space)
+		# Yield one frame between each bot so the renderer stays responsive
+		await get_tree().process_frame
 
 
 func _find_clear_spawn(center: Vector3, rng: RandomNumberGenerator, space: PhysicsDirectSpaceState3D) -> Vector3:
