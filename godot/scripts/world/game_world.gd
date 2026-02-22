@@ -42,11 +42,8 @@ func _ready() -> void:
 
 
 func _spawn_player(peer_id: int) -> void:
-	# Dedicated server (peer 1) has no visual player
-	if peer_id == 1 and multiplayer.is_server():
-		return
-	# Clients do not spawn remote players that have no visual — skip server peer
-	if peer_id == 1:
+	# Skip peer 1 only on a dedicated (headless) server — listen servers need a player
+	if peer_id == 1 and _is_dedicated():
 		return
 	var players_node := $Players
 	if players_node.has_node(str(peer_id)):
@@ -94,8 +91,12 @@ func _on_player_joined(peer_id: int) -> void:
 	if multiplayer.is_server():
 		var existing_peers: Array[int] = []
 		for pid in NetworkManager.connected_peers:
-			if pid != peer_id and pid != 1:
-				existing_peers.append(pid)
+			if pid == peer_id:
+				continue
+			# Skip peer 1 only on dedicated servers — listen server host needs to be visible
+			if pid == 1 and _is_dedicated():
+				continue
+			existing_peers.append(pid)
 		if not existing_peers.is_empty():
 			_receive_peer_list.rpc_id(peer_id, existing_peers)
 		# Send existing character selections and weapon visuals to the new peer
@@ -122,8 +123,11 @@ func _request_peer_list() -> void:
 	var requester_id := multiplayer.get_remote_sender_id()
 	var existing_peers: Array[int] = []
 	for pid in NetworkManager.connected_peers:
-		if pid != requester_id and pid != 1:
-			existing_peers.append(pid)
+		if pid == requester_id:
+			continue
+		if pid == 1 and _is_dedicated():
+			continue
+		existing_peers.append(pid)
 	if not existing_peers.is_empty():
 		_receive_peer_list.rpc_id(requester_id, existing_peers)
 
@@ -292,7 +296,14 @@ func _request_char_sync() -> void:
 	var char_id := GameSettings.selected_character
 	if char_id == "" or char_id == "barbarian":
 		return
-	_sync_character.rpc_id(1, char_id)
+	if multiplayer.is_server():
+		# Host: store directly and broadcast (RPC to self gives sender_id=0)
+		_peer_characters[1] = char_id
+		for peer_id in NetworkManager.connected_peers:
+			if peer_id != 1:
+				_apply_char_sync.rpc_id(peer_id, 1, char_id)
+	else:
+		_sync_character.rpc_id(1, char_id)
 
 
 @rpc("any_peer", "reliable")
@@ -319,6 +330,11 @@ func _apply_char_sync(peer_id: int, char_id: String) -> void:
 		return  # Will be applied in _spawn_player via _peer_characters check
 	if player is PlayerController:
 		(player as PlayerController).apply_remote_character(char_id)
+
+
+func _is_dedicated() -> bool:
+	var all_args := OS.get_cmdline_args() + OS.get_cmdline_user_args()
+	return "--server" in all_args
 
 
 func _get_seed() -> int:

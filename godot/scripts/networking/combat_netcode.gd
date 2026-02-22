@@ -119,7 +119,7 @@ func request_fire(cam_origin: Vector3, cam_dir: Vector3, weapon_type: int,
 	if not multiplayer.is_server():
 		return
 
-	var sender_id := multiplayer.get_remote_sender_id()
+	var sender_id := _resolve_sender()
 
 	# Sequence check: discard stale/duplicate fire events
 	if seq > 0:
@@ -163,13 +163,17 @@ func request_fire(cam_origin: Vector3, cam_dir: Vector3, weapon_type: int,
 	else:
 		muzzle_pos = shooter_pos + Vector3.UP * 1.5
 
+	var fire_end_point := cam_origin + cam_dir * 120.0
 	var recipients := _get_vfx_recipients(sender_id, muzzle_pos)
 	for peer_id in recipients:
-		if peer_id != 1:  # Don't send to server
+		if peer_id != 1:  # Don't RPC to server (handled locally below)
 			_replicate_fire_vfx.rpc_id(peer_id, sender_id, muzzle_pos,
-				cam_origin + cam_dir * 120.0, weapon_type)
+				fire_end_point, weapon_type)
 			if NetworkMetrics:
 				NetworkMetrics.record_rpc(40)
+	# Apply fire VFX locally for listen server host (skip own fire — already has local VFX)
+	if not _is_dedicated() and sender_id != 1:
+		_replicate_fire_vfx(sender_id, muzzle_pos, fire_end_point, weapon_type)
 
 
 func _server_hitscan(sender_id: int, shooter: CharacterBody3D,
@@ -430,7 +434,7 @@ func _replicate_impact(hit_pos: Vector3, hit_normal: Vector3) -> void:
 func request_reload() -> void:
 	if not multiplayer.is_server():
 		return
-	var sender_id := multiplayer.get_remote_sender_id()
+	var sender_id := _resolve_sender()
 	var player := _get_player_node(sender_id)
 	if not player:
 		return
@@ -445,7 +449,7 @@ func request_reload() -> void:
 func request_equip(slot_index: int) -> void:
 	if not multiplayer.is_server():
 		return
-	var sender_id := multiplayer.get_remote_sender_id()
+	var sender_id := _resolve_sender()
 	var player := _get_player_node(sender_id)
 	if not player:
 		return
@@ -457,6 +461,9 @@ func request_equip(slot_index: int) -> void:
 			_replicate_equip.rpc_id(peer_id, sender_id)
 			if NetworkMetrics:
 				NetworkMetrics.record_rpc(8)
+	# Apply equip SFX locally for listen server host (skip own equip)
+	if not _is_dedicated() and sender_id != 1:
+		_replicate_equip(sender_id)
 
 
 @rpc("authority", "unreliable")
@@ -470,8 +477,17 @@ func _replicate_equip(_shooter_peer_id: int) -> void:
 func request_weapon_sync(weapon_path: String) -> void:
 	if not multiplayer.is_server():
 		return
-	var sender_id := multiplayer.get_remote_sender_id()
+	var sender_id := _resolve_sender()
 	_peer_weapons[sender_id] = weapon_path
+	# Apply weapon visual on server for remote players (listen server rendering)
+	if not _is_dedicated() and sender_id != 1:
+		var player := _get_player_node(sender_id)
+		if player:
+			var weapon := load(weapon_path) as WeaponData
+			if weapon:
+				var model := player.get_node_or_null("PlayerModel") as PlayerModel
+				if model:
+					model.equip_weapon_visual(weapon)
 	# Broadcast to all clients except sender
 	for peer_id in NetworkManager.connected_peers:
 		if peer_id != 1 and peer_id != sender_id:
@@ -508,7 +524,7 @@ func request_spawn_projectile(muzzle_pos: Vector3, direction: Vector3,
 		speed: float, gravity: float, damage: float) -> void:
 	if not multiplayer.is_server():
 		return
-	var sender_id := multiplayer.get_remote_sender_id()
+	var sender_id := _resolve_sender()
 	# Broadcast to all clients to spawn visual projectile
 	_replicate_projectile.rpc(sender_id, muzzle_pos, direction, speed, gravity, damage)
 
@@ -541,7 +557,7 @@ func request_respawn() -> void:
 	# Block respawn in Battle Royale
 	if MatchManager.is_br_mode():
 		return
-	var sender_id := multiplayer.get_remote_sender_id()
+	var sender_id := _resolve_sender()
 	var player := _get_player_node(sender_id)
 	if not player:
 		return
@@ -605,3 +621,16 @@ func _get_spawn_position(peer_id: int) -> Vector3:
 		var height: float = wg.get_height_at(center, center) + 2.0
 		return Vector3(center, height, center)
 	return Vector3(0, 5, 0)
+
+
+func _is_dedicated() -> bool:
+	var all_args := OS.get_cmdline_args() + OS.get_cmdline_user_args()
+	return "--server" in all_args
+
+
+## Resolve sender for self-RPCs (server calling RPC on itself gets sender_id=0).
+func _resolve_sender() -> int:
+	var id := multiplayer.get_remote_sender_id()
+	if id == 0 and multiplayer.is_server():
+		return 1
+	return id

@@ -258,6 +258,15 @@ func _send_input(pos: Vector3, rot_y: float, pitch: float,
 	if pivot:
 		pivot.rotation.x = pitch
 
+	# Apply animation state on server (for listen server rendering)
+	if player is PlayerController:
+		var pc := player as PlayerController
+		pc.is_crouching = bool(anim_flags & 1)
+		pc.network_is_aiming = bool(anim_flags & 2)
+		pc.remote_on_floor = bool(anim_flags & 4)
+		pc.network_weapon_type = (anim_flags >> 4) & 0xF
+		pc.network_move_speed = h_speed
+
 	# Send correction back to authority client
 	var corrected_seq: int = _last_processed_seq.get(sender_id, seq)
 	_receive_correction.rpc_id(sender_id, pos, vel_y, corrected_seq, is_crouching)
