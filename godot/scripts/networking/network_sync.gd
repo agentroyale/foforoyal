@@ -1,16 +1,16 @@
 class_name NetworkSync
 extends Node
-## Handles position/rotation sync for a player node.
-## Authority sends state to server, server rebroadcasts to nearby peers.
-## Remote players use NetworkInterpolation for smooth rendering.
-## Integrates LagCompensation for server-side hit validation.
+## Server-authoritative player sync.
+## Client sends raw INPUTS to server, server simulates move_and_slide(),
+## server broadcasts authoritative SNAPSHOTS.
+## Client predicts locally and reconciles against server snapshots.
 ##
 ## Interest management: grid-based spatial hashing (128m cells, 3x3 neighbors).
 ## Delta compression: skip send when position/rotation unchanged.
 ## Fixed tick: sync aligned to physics ticks, not float timer.
 
-const SYNC_INTERVAL := 0.05  # 20 ticks/sec (legacy, used when USE_FIXED_TICK=false)
-const SYNC_TICK_INTERVAL := 3  # 60Hz physics / 3 = 20Hz sync
+const SYNC_INTERVAL := 0.033  # ~30Hz (legacy, used when USE_FIXED_TICK=false)
+const SYNC_TICK_INTERVAL := 2  # 60Hz physics / 2 = 30Hz sync
 const POSITION_SNAP_THRESHOLD := 10.0  # Teleport if too far off
 
 # Interest management
@@ -18,7 +18,7 @@ const USE_INTEREST_MANAGEMENT := true
 const INTEREST_CELL_SIZE := 128.0  # Meters per grid cell
 const INTEREST_REBUILD_INTERVAL := 0.5  # Seconds between grid rebuilds
 
-# Delta compression
+# Delta compression (for broadcast to remote players)
 const USE_DELTA_COMPRESSION := true
 const POSITION_SEND_THRESHOLD := 0.1  # 10cm
 const ROTATION_SEND_THRESHOLD := 0.05  # ~3 degrees
@@ -26,20 +26,24 @@ const ROTATION_SEND_THRESHOLD := 0.05  # ~3 degrees
 # Fixed tick
 const USE_FIXED_TICK := true
 
+# Movement mode constants (packed in input RPC)
+const MOVE_MODE_NORMAL := 0
+const MOVE_MODE_PARACHUTE := 1
+const MOVE_MODE_DISABLED := 2
+
 var _sync_timer: float = 0.0
 var _sync_tick: int = 0
 var _interpolation: NetworkInterpolation = null
 var _lag_comp: LagCompensation = null
-var _last_validated_pos := Vector3.ZERO
 var _prediction: ClientPrediction = null
 
-# Delta compression state
-var _last_sent_pos := Vector3.ZERO
-var _last_sent_rot := 0.0
-var _last_sent_pitch := 0.0
+# Delta compression state (for broadcasts to remote players)
+var _last_broadcast_pos := Vector3.ZERO
+var _last_broadcast_rot := 0.0
+var _last_broadcast_pitch := 0.0
 
-# Input redundancy: last 3 (seq, pos, vel_y, crouching) for packet loss resilience
-var _recent_send_data: Array = []
+# Server snapshot state
+var _snapshot_id: int = 0
 
 # Interest management (server-only, static so CombatNetcode can access)
 static var _interest_grid: Dictionary = {}  # Vector2i -> Array[int]
@@ -51,8 +55,18 @@ static var _grid_initialized: bool = false
 # Lag compensation registry (server-only, static so CombatNetcode can access)
 static var lag_comp_instances: Dictionary = {}  # peer_id -> LagCompensation
 
-# Server-side sequence tracking for input redundancy
+# Server-side sequence tracking (last received input seq per peer)
 static var _last_processed_seq: Dictionary = {}  # peer_id -> int
+
+# Server-side jitter buffers (one per remote peer)
+static var _jitter_buffers: Dictionary = {}  # peer_id -> InputJitterBuffer
+
+# Client-side: previous input for redundancy
+var _prev_input_seq: int = -1
+var _prev_input_dir: Vector2 = Vector2.ZERO
+var _prev_input_jump: bool = false
+var _prev_input_sprint: bool = false
+var _prev_input_crouch: bool = false
 
 
 func _ready() -> void:
@@ -65,7 +79,7 @@ func _ready() -> void:
 		_interpolation = NetworkInterpolation.new()
 		_interpolation.name = "NetworkInterpolation"
 		player.add_child.call_deferred(_interpolation)
-		# Disable physics for remote players (interpolation handles movement)
+		# Disable physics for remote players on clients (interpolation handles rendering)
 		player.set_physics_process(false)
 
 	# Server tracks all player positions for lag compensation
@@ -80,13 +94,12 @@ func _ready() -> void:
 		if player is PlayerController:
 			player._prediction = _prediction
 
-	# When a new peer joins, reset delta compression so we force a full sync
+	# When a new peer joins, reset delta compression so we force a full broadcast
 	if player.is_multiplayer_authority():
 		NetworkManager.player_connected.connect(_on_peer_joined)
 
-	_last_validated_pos = player.global_position
-	_last_sent_pos = player.global_position
-	_last_sent_rot = player.rotation.y
+	_last_broadcast_pos = player.global_position
+	_last_broadcast_rot = player.rotation.y
 
 
 func _exit_tree() -> void:
@@ -95,15 +108,16 @@ func _exit_tree() -> void:
 		var peer_id := player.get_multiplayer_authority()
 		lag_comp_instances.erase(peer_id)
 		_last_processed_seq.erase(peer_id)
+		_jitter_buffers.erase(peer_id)
 	if NetworkManager and NetworkManager.player_connected.is_connected(_on_peer_joined):
 		NetworkManager.player_connected.disconnect(_on_peer_joined)
 
 
-## Force full sync on next tick when a new peer joins (defeats delta compression).
+## Force full broadcast on next tick when a new peer joins (defeats delta compression).
 func _on_peer_joined(_peer_id: int) -> void:
-	_last_sent_pos = Vector3(INF, INF, INF)
-	_last_sent_rot = INF
-	_last_sent_pitch = INF
+	_last_broadcast_pos = Vector3(INF, INF, INF)
+	_last_broadcast_rot = INF
+	_last_broadcast_pitch = INF
 
 
 func _physics_process(delta: float) -> void:
@@ -121,83 +135,35 @@ func _physics_process(delta: float) -> void:
 			_rebuild_timer = 0.0
 			_update_interest_grid()
 
-	# Authority sends position updates
-	if player.is_multiplayer_authority():
-		var should_send := false
+	# === CLIENT (authority): send inputs to server ===
+	if player.is_multiplayer_authority() and not multiplayer.is_server():
+		_sync_tick += 1
+		if _sync_tick >= SYNC_TICK_INTERVAL:
+			_sync_tick = 0
+			_send_client_input(player)
 
-		if USE_FIXED_TICK:
-			_sync_tick += 1
-			if _sync_tick >= SYNC_TICK_INTERVAL:
-				_sync_tick = 0
-				should_send = true
-		else:
-			_sync_timer += delta
-			if _sync_timer >= SYNC_INTERVAL:
-				_sync_timer = 0.0
-				should_send = true
+	# === HOST (server + authority): broadcast own state directly ===
+	if player.is_multiplayer_authority() and multiplayer.is_server():
+		_sync_tick += 1
+		if _sync_tick >= SYNC_TICK_INTERVAL:
+			_sync_tick = 0
+			_broadcast_host_state(player)
 
-		if should_send:
-			var pos := player.global_position
-			var rot_y := player.rotation.y
-			var pitch := 0.0
-			var pivot := player.get_node_or_null("CameraPivot") as Node3D
-			if pivot:
-				pitch = pivot.rotation.x
+	# === SERVER: consume from jitter buffer + simulate remote players + send snapshots ===
+	if multiplayer.is_server() and not player.is_multiplayer_authority():
+		var peer_id := player.get_multiplayer_authority()
+		var jbuf: InputJitterBuffer = _jitter_buffers.get(peer_id)
 
-			# Delta compression: skip if nothing changed
-			if USE_DELTA_COMPRESSION:
-				var pos_delta := pos.distance_to(_last_sent_pos)
-				var rot_delta := absf(rot_y - _last_sent_rot)
-				var pitch_delta := absf(pitch - _last_sent_pitch)
-				if pos_delta < POSITION_SEND_THRESHOLD and rot_delta < ROTATION_SEND_THRESHOLD and pitch_delta < ROTATION_SEND_THRESHOLD:
-					return
+		# Consume input from jitter buffer and simulate physics
+		if player is PlayerController and jbuf:
+			var input: Dictionary = jbuf.tick()
+			player.server_simulate_tick(input, delta)
 
-			_last_sent_pos = pos
-			_last_sent_rot = rot_y
-			_last_sent_pitch = pitch
-
-			# Pack animation state: speed + flags
-			var h_speed := Vector2(player.velocity.x, player.velocity.z).length()
-			var anim_flags := _pack_anim_flags(player)
-
-			if multiplayer.is_server():
-				# Host: broadcast directly to nearby clients
-				_peer_positions[1] = pos
-				var server_time := Time.get_ticks_msec()
-				if USE_INTEREST_MANAGEMENT:
-					var nearby := _get_nearby_peers(1)
-					for peer_id in nearby:
-						if peer_id != 1:
-							_receive_state.rpc_id(peer_id, pos, rot_y, pitch, server_time, h_speed, anim_flags)
-							if NetworkMetrics:
-								NetworkMetrics.record_rpc(28)
-				else:
-					for peer_id in NetworkManager.connected_peers:
-						if peer_id != 1:
-							_receive_state.rpc_id(peer_id, pos, rot_y, pitch, server_time, h_speed, anim_flags)
-							if NetworkMetrics:
-								NetworkMetrics.record_rpc(28)
-			else:
-				# Client: send input + state to server for validation
-				var pc := player as PlayerController
-				var seq := (_prediction.get_sequence() - 1) if _prediction else 0
-				var vel_y := player.velocity.y
-				var is_crouch := pc.is_crouching if pc else false
-
-				# Build redundant data for packet loss resilience
-				var redundant := _build_redundant_data()
-				_recent_send_data.append({
-					"seq": seq, "pos": pos,
-					"vel_y": vel_y, "is_crouching": is_crouch,
-				})
-				if _recent_send_data.size() > 3:
-					_recent_send_data.pop_front()
-
-				_send_input.rpc_id(1, pos, rot_y, pitch,
-						vel_y, is_crouch, seq,
-						h_speed, anim_flags, redundant)
-				if NetworkMetrics:
-					NetworkMetrics.record_rpc(48)
+		# Send snapshot back to owning client + broadcast to nearby peers
+		_sync_tick += 1
+		if _sync_tick >= SYNC_TICK_INTERVAL:
+			_sync_tick = 0
+			_send_server_snapshot(player)
 
 	# Server records positions for lag compensation
 	if multiplayer.is_server() and _lag_comp:
@@ -205,12 +171,56 @@ func _physics_process(delta: float) -> void:
 		_lag_comp.record_snapshot(peer_id, player.global_position, player.rotation.y)
 
 
+# === Client → Server: raw inputs ===
+
+func _send_client_input(player: CharacterBody3D) -> void:
+	var rot_y := player.rotation.y
+	var pitch := _get_camera_pitch(player)
+	var seq := (_prediction.get_sequence() - 1) if _prediction else 0
+	var dir := Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
+	var jump := Input.is_action_just_pressed("jump")
+	var sprint := Input.is_action_pressed("sprint")
+	var crouch := Input.is_action_pressed("crouch")
+	var move_mode := _pack_move_mode(player)
+	var anim_flags := _pack_anim_flags(player)
+
+	# Build redundant previous input (for packet loss resilience)
+	var redundant := _build_redundant_input()
+
+	_send_player_input.rpc_id(1, seq, dir, jump, sprint, crouch,
+			rot_y, pitch, move_mode, anim_flags, redundant)
+	if NetworkMetrics:
+		NetworkMetrics.record_rpc(31)  # ~25 current + 6 redundant
+
+	# Save current as previous for next packet
+	_prev_input_seq = seq
+	_prev_input_dir = dir
+	_prev_input_jump = jump
+	_prev_input_sprint = sprint
+	_prev_input_crouch = crouch
+
+
+func _build_redundant_input() -> PackedFloat32Array:
+	## Pack previous input for redundancy: [seq, dir.x, dir.y, jump, sprint, crouch]
+	if _prev_input_seq < 0:
+		return PackedFloat32Array()
+	var data := PackedFloat32Array()
+	data.resize(6)
+	data[0] = float(_prev_input_seq)
+	data[1] = _prev_input_dir.x
+	data[2] = _prev_input_dir.y
+	data[3] = 1.0 if _prev_input_jump else 0.0
+	data[4] = 1.0 if _prev_input_sprint else 0.0
+	data[5] = 1.0 if _prev_input_crouch else 0.0
+	return data
+
+
 @rpc("any_peer", "unreliable_ordered")
-func _send_input(pos: Vector3, rot_y: float, pitch: float,
-		vel_y: float, is_crouching: bool, seq: int,
-		h_speed: float, anim_flags: int,
-		redundant: PackedFloat32Array) -> void:
-	## Client → Server: input state with sequence for prediction/correction.
+func _send_player_input(seq: int, direction: Vector2, jump: bool,
+		sprint: bool, crouch: bool, rot_y: float, pitch: float,
+		move_mode: int, anim_flags: int,
+		redundant: PackedFloat32Array = PackedFloat32Array()) -> void:
+	## Client → Server: raw input with sequence number + redundant previous input.
 	if not multiplayer.is_server():
 		return
 
@@ -219,64 +229,136 @@ func _send_input(pos: Vector3, rot_y: float, pitch: float,
 		return
 
 	var sender_id := multiplayer.get_remote_sender_id()
+
+	# Track highest received seq (for snapshot ack reference)
 	var last_seq: int = _last_processed_seq.get(sender_id, -1)
-	var was_clamped := false
-
-	# Process redundant (older) entries first — packet loss recovery
-	# Use update_timing=false to avoid corrupting timing for the current entry
-	var entry_size := 6  # seq, pos.x, pos.y, pos.z, vel_y, crouch_flag
-	var entry_count := redundant.size() / entry_size
-	for i in entry_count:
-		var base := i * entry_size
-		var r_seq := int(redundant[base])
-		if r_seq <= last_seq:
-			continue  # already processed
-		var r_pos := Vector3(redundant[base + 1], redundant[base + 2], redundant[base + 3])
-		# Simple distance check for redundant entries (no timing update)
-		if not ServerValidation.validate_movement_v2(sender_id, _last_validated_pos, r_pos, false):
-			var dir := (r_pos - _last_validated_pos).normalized()
-			var max_dist := ServerValidation.MAX_SPEED * 0.15  # ~3 ticks max
-			r_pos = _last_validated_pos + dir * max_dist
-			was_clamped = true
-		_last_validated_pos = r_pos
-		_last_processed_seq[sender_id] = r_seq
-
-	# Process current entry (skip if already seen via redundancy)
 	if seq > last_seq:
-		if not ServerValidation.validate_movement_v2(sender_id, _last_validated_pos, pos):
-			var dir := (pos - _last_validated_pos).normalized()
-			var max_dist := ServerValidation.MAX_SPEED * 0.1  # ~2 ticks
-			pos = _last_validated_pos + dir * max_dist
-			was_clamped = true
-
-		_last_validated_pos = pos
 		_last_processed_seq[sender_id] = seq
 
-	# Track peer position for interest management
-	_peer_positions[sender_id] = pos
+	# Get or create jitter buffer for this peer
+	var jbuf: InputJitterBuffer
+	if _jitter_buffers.has(sender_id):
+		jbuf = _jitter_buffers[sender_id]
+	else:
+		jbuf = InputJitterBuffer.new()
+		_jitter_buffers[sender_id] = jbuf
 
-	# Update player position on server
-	player.global_position = pos
+	# Validate + sanitize input
+	direction = ServerValidation.validate_input_direction(direction)
+
+	# Apply look direction (client-authoritative rotation — instant, not buffered)
 	player.rotation.y = rot_y
 	var pivot := player.get_node_or_null("CameraPivot") as Node3D
 	if pivot:
 		pivot.rotation.x = pitch
 
-	# Apply animation state on server (for listen server rendering)
+	# Apply animation state on server (for listen server rendering + model)
 	if player is PlayerController:
 		var pc := player as PlayerController
-		pc.is_crouching = bool(anim_flags & 1)
 		pc.network_is_aiming = bool(anim_flags & 2)
 		pc.remote_on_floor = bool(anim_flags & 4)
 		pc.network_weapon_type = (anim_flags >> 4) & 0xF
-		pc.network_move_speed = h_speed
 
-	# Only send correction when server actually clamped the position
-	if was_clamped:
-		var corrected_seq: int = _last_processed_seq.get(sender_id, seq)
-		_receive_correction.rpc_id(sender_id, pos, vel_y, corrected_seq, is_crouching)
+	# Route input to the correct controller
+	if move_mode == MOVE_MODE_PARACHUTE:
+		var parachute := player.get_node_or_null("ParachuteController")
+		if parachute and parachute.has_method("set_input"):
+			parachute.set_input(direction)
+			if jump:
+				var dc := player.get_tree().current_scene.get_node_or_null("DropController")
+				if dc and dc.has_method("_eject_player"):
+					dc._eject_player(player)
+	elif move_mode == MOVE_MODE_NORMAL:
+		# Process redundant (previous) input first — packet loss recovery
+		if redundant.size() >= 6:
+			var r_seq := int(redundant[0])
+			var r_dir := ServerValidation.validate_input_direction(
+					Vector2(redundant[1], redundant[2]))
+			var r_input := {
+				"direction": r_dir,
+				"jump": redundant[3] > 0.5,
+				"sprint": redundant[4] > 0.5,
+				"crouch": redundant[5] > 0.5,
+			}
+			jbuf.push(r_seq, r_input)  # Buffer handles duplicates
 
-	# Rebroadcast to nearby clients (excluding sender and server)
+		# Push current input into jitter buffer
+		var input := {
+			"direction": direction,
+			"jump": jump,
+			"sprint": sprint,
+			"crouch": crouch,
+		}
+		jbuf.push(seq, input)
+
+
+# === Server → Client: authoritative snapshot ===
+
+func _send_server_snapshot(player: CharacterBody3D) -> void:
+	var peer_id := player.get_multiplayer_authority()
+	var pos := player.global_position
+	var rot_y := player.rotation.y
+	var pitch := _get_camera_pitch(player)
+	var vel_y := player.velocity.y
+	var h_speed := Vector2(player.velocity.x, player.velocity.z).length()
+	var anim_flags := _pack_anim_flags(player)
+	# Use last CONSUMED seq from jitter buffer (not last received)
+	var jbuf: InputJitterBuffer = _jitter_buffers.get(peer_id)
+	var last_seq: int = jbuf.get_last_consumed_seq() if jbuf else _last_processed_seq.get(peer_id, 0)
+
+	# Track peer position for interest management
+	_peer_positions[peer_id] = pos
+
+	# Send authoritative snapshot to owning client
+	_snapshot_id += 1
+	var pc := player as PlayerController
+	var is_crouch := pc.is_crouching if pc else false
+	_receive_snapshot.rpc_id(peer_id, _snapshot_id, last_seq, pos,
+			vel_y, is_crouch, h_speed, anim_flags)
+	if NetworkMetrics:
+		NetworkMetrics.record_rpc(40)
+
+	# Broadcast to nearby clients (excluding owner and server)
+	_broadcast_to_nearby(peer_id, pos, rot_y, pitch, h_speed, anim_flags)
+
+
+func _broadcast_host_state(player: CharacterBody3D) -> void:
+	var pos := player.global_position
+	var rot_y := player.rotation.y
+	var pitch := _get_camera_pitch(player)
+
+	# Delta compression: skip if nothing changed
+	if USE_DELTA_COMPRESSION:
+		var pos_delta := pos.distance_to(_last_broadcast_pos)
+		var rot_delta := absf(rot_y - _last_broadcast_rot)
+		var pitch_delta := absf(pitch - _last_broadcast_pitch)
+		if pos_delta < POSITION_SEND_THRESHOLD and rot_delta < ROTATION_SEND_THRESHOLD and pitch_delta < ROTATION_SEND_THRESHOLD:
+			return
+
+	_last_broadcast_pos = pos
+	_last_broadcast_rot = rot_y
+	_last_broadcast_pitch = pitch
+
+	_peer_positions[1] = pos
+	var h_speed := Vector2(player.velocity.x, player.velocity.z).length()
+	var anim_flags := _pack_anim_flags(player)
+
+	_broadcast_to_nearby(1, pos, rot_y, pitch, h_speed, anim_flags)
+
+
+func _broadcast_to_nearby(sender_id: int, pos: Vector3, rot_y: float,
+		pitch: float, h_speed: float, anim_flags: int) -> void:
+	# Apply delta compression for broadcast
+	if USE_DELTA_COMPRESSION and sender_id != 1:
+		var pos_delta := pos.distance_to(_last_broadcast_pos)
+		var rot_delta := absf(rot_y - _last_broadcast_rot)
+		var pitch_delta := absf(pitch - _last_broadcast_pitch)
+		if pos_delta < POSITION_SEND_THRESHOLD and rot_delta < ROTATION_SEND_THRESHOLD and pitch_delta < ROTATION_SEND_THRESHOLD:
+			return
+		_last_broadcast_pos = pos
+		_last_broadcast_rot = rot_y
+		_last_broadcast_pitch = pitch
+
 	var server_time := Time.get_ticks_msec()
 	if USE_INTEREST_MANAGEMENT:
 		var nearby := _get_nearby_peers(sender_id)
@@ -294,15 +376,15 @@ func _send_input(pos: Vector3, rot_y: float, pitch: float,
 
 
 @rpc("any_peer", "unreliable_ordered")
-func _receive_correction(server_pos: Vector3, server_vel_y: float,
-		server_seq: int, server_is_crouching: bool) -> void:
-	## Server → Authority Client: correction for reconciliation.
+func _receive_snapshot(snapshot_id: int, last_input_seq: int,
+		pos: Vector3, vel_y: float, is_crouching: bool,
+		h_speed: float, anim_flags: int) -> void:
+	## Server → Authority Client: authoritative snapshot for reconciliation.
 	if not multiplayer.is_server() and multiplayer.get_remote_sender_id() != 1:
-		return  # Only accept corrections from server
+		return  # Only accept snapshots from server
 	var player := get_parent() as PlayerController
 	if player and player.is_multiplayer_authority():
-		player.apply_server_correction(server_pos, server_vel_y, server_seq,
-				server_is_crouching)
+		player.apply_server_snapshot(pos, vel_y, last_input_seq, is_crouching)
 
 
 @rpc("any_peer", "unreliable_ordered")
@@ -350,6 +432,24 @@ func get_position_at_time(peer_id: int, timestamp: float) -> Dictionary:
 	if _lag_comp:
 		return _lag_comp.get_position_at_time(peer_id, timestamp)
 	return {}
+
+
+# === Helpers ===
+
+func _get_camera_pitch(player: CharacterBody3D) -> float:
+	var pivot := player.get_node_or_null("CameraPivot") as Node3D
+	if pivot:
+		return pivot.rotation.x
+	return 0.0
+
+
+func _pack_move_mode(player: CharacterBody3D) -> int:
+	if player is PlayerController and player.movement_disabled:
+		return MOVE_MODE_DISABLED
+	var parachute := player.get_node_or_null("ParachuteController")
+	if parachute and parachute.get("is_dropping"):
+		return MOVE_MODE_PARACHUTE
+	return MOVE_MODE_NORMAL
 
 
 # === Interest Management ===
@@ -412,20 +512,6 @@ static func get_nearby_peers_for_position(pos: Vector3) -> Array:
 	return result
 
 
-## Build PackedFloat32Array with previous entries for input redundancy.
-func _build_redundant_data() -> PackedFloat32Array:
-	var data := PackedFloat32Array()
-	for entry in _recent_send_data:
-		data.append(float(entry["seq"]))
-		var p: Vector3 = entry["pos"]
-		data.append(p.x)
-		data.append(p.y)
-		data.append(p.z)
-		data.append(entry["vel_y"])
-		data.append(1.0 if entry["is_crouching"] else 0.0)
-	return data
-
-
 ## Clear all static state (for tests / disconnect).
 static func clear_interest_data() -> void:
 	_interest_grid.clear()
@@ -435,6 +521,7 @@ static func clear_interest_data() -> void:
 	_grid_initialized = false
 	lag_comp_instances.clear()
 	_last_processed_seq.clear()
+	_jitter_buffers.clear()
 
 
 ## Pack animation-relevant state into a single int for network sync.

@@ -2,6 +2,7 @@ extends Node
 ## Handles parachute deployment during BR drop.
 ## Attach as child of PlayerController.
 ## Controls camera zoom, weapon visibility, and animation during drop phases.
+## Supports server-authoritative input via set_input().
 
 signal parachute_opened()
 signal landed()
@@ -16,6 +17,12 @@ const FREEFALL_CAMERA_DISTANCE := 12.0
 var is_dropping: bool = false
 var parachute_deployed: bool = false
 var _parachute_visual: Node3D = null
+var _parachute_input: Vector2 = Vector2.ZERO  # Server-side input from RPC
+
+
+func set_input(direction: Vector2) -> void:
+	## Called by NetworkSync on server to set parachute movement direction.
+	_parachute_input = direction
 
 
 func start_drop() -> void:
@@ -56,7 +63,12 @@ func _freefall_movement(player: CharacterBody3D, _delta: float) -> void:
 
 
 func _parachute_movement(player: CharacterBody3D, _delta: float) -> void:
-	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
+	var input_dir: Vector2
+	# Server uses input received via RPC; local player reads Input directly
+	if multiplayer.has_multiplayer_peer() and multiplayer.is_server() and not player.is_multiplayer_authority():
+		input_dir = _parachute_input
+	else:
+		input_dir = Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
 	var direction := (player.transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
 	player.velocity = Vector3(
 		direction.x * PARACHUTE_HORIZONTAL_SPEED,
@@ -80,6 +92,7 @@ func _deploy_parachute(player: CharacterBody3D) -> void:
 func _land(player: CharacterBody3D) -> void:
 	is_dropping = false
 	parachute_deployed = false
+	_parachute_input = Vector2.ZERO
 	# Remove visual
 	if _parachute_visual:
 		_parachute_visual.queue_free()

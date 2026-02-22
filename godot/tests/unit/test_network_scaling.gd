@@ -136,17 +136,17 @@ func test_rate_limiting_violation_tracking() -> void:
 	assert_true(cn.get_violation_count(99) <= 5, "Old violations should be pruned")
 
 
-# ─── Test 7: Fixed Tick Interval Consistency ───
+# ─── Test 7: Fixed Tick Interval Consistency (30Hz) ───
 
 func test_fixed_tick_interval() -> void:
-	assert_eq(NetworkSync.SYNC_TICK_INTERVAL, 3,
-		"Sync tick interval should be 3 (60Hz/3 = 20Hz)")
+	assert_eq(NetworkSync.SYNC_TICK_INTERVAL, 2,
+		"Sync tick interval should be 2 (60Hz/2 = 30Hz)")
 	assert_true(NetworkSync.USE_FIXED_TICK,
 		"Fixed tick should be enabled by default")
 
 	# Verify legacy interval is still defined for fallback
-	assert_almost_eq(NetworkSync.SYNC_INTERVAL, 0.05, 0.001,
-		"Legacy sync interval should be 0.05s (20Hz)")
+	assert_almost_eq(NetworkSync.SYNC_INTERVAL, 0.033, 0.002,
+		"Legacy sync interval should be ~0.033s (30Hz)")
 
 
 # ─── Test 8: Distance-Filtered VFX Nearby (50m = Receive) ───

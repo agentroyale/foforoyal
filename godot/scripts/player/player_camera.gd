@@ -22,6 +22,7 @@ const SHAKE_DECAY := 6.0
 const SWAY_AMPLITUDE := 0.15
 const SWAY_SPEED := 2.5
 const SWAY_CROUCH_MULT := 0.5
+const CAMERA_FOLLOW_SPEED := 20.0  # Lerp speed for position smoothing
 
 var mouse_captured := true
 var is_aiming := false
@@ -35,6 +36,8 @@ var adjust_mode := false  ## set by WeaponAdjust to prevent orbit snap-back
 var _orbit_yaw := 0.0
 var _sway_time := 0.0
 var _sway_offset := Vector2.ZERO
+var _follow_target: Node3D = null  # Player node (set when top_level)
+var _pivot_height: float = 1.8  # Smoothed pivot Y for crouch
 
 @onready var camera: Camera3D = $Camera3D
 
@@ -45,6 +48,13 @@ func _ready() -> void:
 		set_process_unhandled_input(false)
 		set_process(false)
 		return
+	# Top-level mode: camera lerps position independently, absorbs corrections
+	if multiplayer.has_multiplayer_peer() and not multiplayer.is_server():
+		_follow_target = get_parent()
+		set_as_top_level(true)
+		# Initialize to current player position
+		global_position = _follow_target.global_position + Vector3(0, _pivot_height, 0)
+		global_rotation = _follow_target.global_rotation
 	if not _is_mobile():
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
@@ -72,8 +82,17 @@ func _process(delta: float) -> void:
 	# Consume touch camera delta (mobile)
 	_apply_touch_camera_delta()
 
+	# Top-level follow: lerp position to player, instant yaw copy
+	if _follow_target and is_set_as_top_level():
+		var pc := _follow_target as PlayerController
+		var target_h: float = 1.1 if (pc and pc.is_crouching) else 1.8
+		_pivot_height = lerpf(_pivot_height, target_h, 10.0 * delta)  # Same as PlayerController.CROUCH_LERP_SPEED
+		var target_pos := _follow_target.global_position + Vector3(0, _pivot_height, 0)
+		global_position = global_position.lerp(target_pos, CAMERA_FOLLOW_SPEED * delta)
+
 	# Always show model in TPS
-	var model := get_parent().get_node_or_null("PlayerModel")
+	var player_node := _follow_target if _follow_target else get_parent()
+	var model := player_node.get_node_or_null("PlayerModel") if player_node else null
 	if model:
 		model.visible = _camera_distance > 0.5
 
@@ -82,7 +101,11 @@ func _process(delta: float) -> void:
 		_orbit_yaw = lerpf(_orbit_yaw, 0.0, ORBIT_SNAP_SPEED * delta)
 		if absf(_orbit_yaw) < 0.01:
 			_orbit_yaw = 0.0
-	rotation.y = _orbit_yaw
+	# Yaw: instant copy from player + orbit offset
+	if _follow_target and is_set_as_top_level():
+		rotation.y = _follow_target.rotation.y + _orbit_yaw
+	else:
+		rotation.y = _orbit_yaw
 
 	# ADS lerp — camera distance and FOV (override takes priority, e.g. during BR drop)
 	var target_distance := ADS_CAMERA_DISTANCE if is_aiming else DEFAULT_CAMERA_DISTANCE

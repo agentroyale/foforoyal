@@ -51,16 +51,12 @@ func test_client_prediction_with_correction() -> void:
 # ─── Test 3: Server Validation Rejects Cheats ───
 
 func test_rpc_validation_rejects_cheats() -> void:
-	# Movement validation
-	var valid := ServerValidation.validate_movement(
-		Vector3.ZERO, Vector3(4, 0, 0), 1.0  # 4 m/s < 10 max
-	)
-	assert_true(valid, "Normal movement should pass")
+	# Input direction validation (replaces movement validation)
+	var normal_dir := ServerValidation.validate_input_direction(Vector2(0.5, -0.5))
+	assert_almost_eq(normal_dir.x, 0.5, 0.001, "Normal direction unchanged")
 
-	var too_fast := ServerValidation.validate_movement(
-		Vector3.ZERO, Vector3(20, 0, 0), 1.0  # 20 m/s > 10 max
-	)
-	assert_false(too_fast, "Teleport-speed movement should fail")
+	var cheat_dir := ServerValidation.validate_input_direction(Vector2(5.0, 5.0))
+	assert_almost_eq(cheat_dir.length(), 1.0, 0.01, "Cheat direction clamped")
 
 	# Placement validation
 	var valid_place := ServerValidation.validate_placement(
@@ -197,24 +193,21 @@ func test_client_prediction_buffer_overflow() -> void:
 		"Buffer should be capped at BUFFER_SIZE (%d)" % ClientPrediction.BUFFER_SIZE)
 
 
-# ─── Test 9: Server Validation V2 Timing-Based ───
+# ─── Test 9: Input Validation Direction Clamping ───
 
-func test_server_validation_v2_timing() -> void:
-	ServerValidation.clear_timing_data()
+func test_input_validation_direction_clamping() -> void:
+	# Normal direction passes through
+	var normal := ServerValidation.validate_input_direction(Vector2(0.7, -0.7))
+	assert_true(normal.length() <= 1.01, "Normal direction stays within unit length")
 
-	# First call defaults to 50ms elapsed. 0.3m/0.05s = 6 m/s < 15 max
-	var valid := ServerValidation.validate_movement_v2(
-		100, Vector3.ZERO, Vector3(0.3, 0, 0)
-	)
-	assert_true(valid, "Normal movement should pass v2 validation")
+	# Unit direction passes through unchanged
+	var unit := ServerValidation.validate_input_direction(Vector2(1.0, 0.0))
+	assert_almost_eq(unit.x, 1.0, 0.001, "Unit X unchanged")
+	assert_almost_eq(unit.y, 0.0, 0.001, "Unit Y unchanged")
 
-	# Teleport: 100m in ~0ms (clamped to 10ms) = 10000 m/s — should fail
-	var cheat := ServerValidation.validate_movement_v2(
-		101, Vector3.ZERO, Vector3(100, 0, 0)
-	)
-	assert_false(cheat, "Teleport-speed movement should fail v2 validation")
-
-	ServerValidation.clear_timing_data()
+	# Over-length direction gets clamped
+	var over := ServerValidation.validate_input_direction(Vector2(3.0, 4.0))
+	assert_almost_eq(over.length(), 1.0, 0.01, "Over-length clamped to 1.0")
 
 
 # ─── Test 10: Client Prediction Reconcile No Correction Below Threshold ───
@@ -226,7 +219,7 @@ func test_client_prediction_below_threshold() -> void:
 	var state := {"position": Vector3(0, 0, -1), "velocity_y": 0.0, "is_crouching": false}
 	pred.record_input(input, state)
 
-	# Server pos only 0.1m off — below CORRECTION_THRESHOLD (0.5m)
-	var result := pred.reconcile(Vector3(0.1, 0, -1), 0.0, 0, false)
+	# Server pos only 0.03m (3cm) off — below CORRECTION_THRESHOLD (5cm)
+	var result := pred.reconcile(Vector3(0.03, 0, -1), 0.0, 0, false)
 	assert_false(result["needs_correction"],
-		"Should not correct when error < CORRECTION_THRESHOLD")
+		"Should not correct when error < 5cm CORRECTION_THRESHOLD")

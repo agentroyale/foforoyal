@@ -175,9 +175,10 @@ func _create_net_overlay() -> void:
 	vbox.add_theme_constant_override("separation", 2)
 	panel.add_child(vbox)
 
-	# Create 8 metric labels
+	# Create 10 metric labels (added prediction error + correction count)
 	var labels := ["NET STATS (F3)", "RTT: --", "Jitter: --", "Loss: --",
-		"Buffer: --", "FPS: --", "Physics: --", "Peers: --"]
+		"Buffer: --", "FPS: --", "Physics: --", "Peers: --",
+		"PredErr: --", "Corrections: --"]
 	for text in labels:
 		var lbl := Label.new()
 		lbl.text = text
@@ -203,7 +204,7 @@ func _update_net_overlay() -> void:
 	if not panel:
 		return
 	var vbox := panel.get_child(0) as VBoxContainer
-	if not vbox or vbox.get_child_count() < 8:
+	if not vbox or vbox.get_child_count() < 10:
 		return
 
 	var labels: Array[Label] = []
@@ -250,6 +251,24 @@ func _update_net_overlay() -> void:
 
 	# Peer count
 	labels[7].text = "Peers: %d" % NetworkManager.get_peer_count()
+
+	# Prediction error + correction count (from local player's ClientPrediction)
+	var pred_err := 0.0
+	var corr_count := 0
+	for p in get_tree().get_nodes_in_group("players"):
+		if p is PlayerController and p.is_multiplayer_authority():
+			if p._prediction:
+				pred_err = p._prediction.last_correction_error
+				corr_count = p._prediction.correction_count
+			break
+	labels[8].text = "PredErr: %.3fm" % pred_err
+	if pred_err > 0.5:
+		labels[8].add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+	elif pred_err > 0.1:
+		labels[8].add_theme_color_override("font_color", Color(1.0, 1.0, 0.3))
+	else:
+		labels[8].add_theme_color_override("font_color", Color(0.0, 1.0, 0.4))
+	labels[9].text = "Corrections: %d" % corr_count
 
 
 func _create_use_progress_bar() -> void:

@@ -2,16 +2,21 @@ class_name ClientPrediction
 extends RefCounted
 ## Client-side movement prediction with server reconciliation.
 ## Records input + state snapshots in ring buffers.
-## On server correction, returns pending inputs for replay.
+## On server snapshot, returns pending inputs for replay.
 
 const BUFFER_SIZE := 128
-const CORRECTION_THRESHOLD := 1.0  # meters — ignore corrections below this
-const SNAP_THRESHOLD := 5.0  # teleport above this distance
+const CORRECTION_THRESHOLD := 0.05  # 5cm — any error above this corrects
+const SMOOTH_THRESHOLD := 2.0       # below this: visual blend smooth
+const SNAP_THRESHOLD := 5.0         # above this: hard teleport
 
 var _input_buffer: Array[Dictionary] = []
 var _state_buffer: Array[Dictionary] = []
 var _sequence: int = 0
 var _last_acked_seq: int = -1
+
+# Stats for debug HUD
+var last_correction_error: float = 0.0
+var correction_count: int = 0
 
 
 func record_input(input: Dictionary, state_after: Dictionary) -> int:
@@ -34,8 +39,9 @@ func record_input(input: Dictionary, state_after: Dictionary) -> int:
 func reconcile(server_pos: Vector3, server_vel_y: float, server_seq: int,
 		server_is_crouching: bool) -> Dictionary:
 	## Compare server state against predicted state for server_seq.
-	## Returns {needs_correction, correction_offset, server_position,
-	##          server_velocity_y, server_is_crouching, pending_inputs}.
+	## Returns {needs_correction, error_magnitude, correction_offset,
+	##          server_position, server_velocity_y, server_is_crouching,
+	##          pending_inputs}.
 	_last_acked_seq = server_seq
 
 	# Find predicted state for this sequence
@@ -55,11 +61,17 @@ func reconcile(server_pos: Vector3, server_vel_y: float, server_seq: int,
 		_state_buffer = _state_buffer.slice(trim_to + 1)
 
 	if not found:
-		return {"needs_correction": false, "correction_offset": Vector3.ZERO, "pending_inputs": []}
+		return {"needs_correction": false, "error_magnitude": 0.0,
+				"correction_offset": Vector3.ZERO, "pending_inputs": []}
 
 	var error := server_pos.distance_to(predicted_pos)
 	if error < CORRECTION_THRESHOLD:
-		return {"needs_correction": false, "correction_offset": Vector3.ZERO, "pending_inputs": []}
+		return {"needs_correction": false, "error_magnitude": error,
+				"correction_offset": Vector3.ZERO, "pending_inputs": []}
+
+	# Track stats
+	last_correction_error = error
+	correction_count += 1
 
 	# Collect pending inputs for replay
 	var pending: Array[Dictionary] = []
@@ -68,6 +80,7 @@ func reconcile(server_pos: Vector3, server_vel_y: float, server_seq: int,
 
 	return {
 		"needs_correction": true,
+		"error_magnitude": error,
 		"correction_offset": server_pos - predicted_pos,
 		"server_position": server_pos,
 		"server_velocity_y": server_vel_y,

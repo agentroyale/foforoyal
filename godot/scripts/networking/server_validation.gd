@@ -2,40 +2,18 @@ class_name ServerValidation
 extends RefCounted
 ## Static server-side validation for all player RPCs.
 ## Rejects invalid or suspicious requests.
+## Movement validation is no longer needed (server simulates physics directly).
 
-const MAX_SPEED := 10.0  # Slightly above sprint (6.5) + tolerance
+const MAX_SPEED := 10.0  # Kept for reference / legacy tests
 const MAX_PLACEMENT_RANGE := 6.0  # Slightly above placement distance (5.0)
 const MAX_INTERACT_RANGE := 5.0  # Slightly above interaction distance (4.0)
 
 
-static func validate_movement(old_pos: Vector3, new_pos: Vector3, delta: float) -> bool:
-	## Reject movement faster than max speed allows.
-	if delta <= 0.0:
-		return false
-	var distance := old_pos.distance_to(new_pos)
-	var speed := distance / delta
-	return speed <= MAX_SPEED
-
-
-# Per-peer timing for accurate speed validation
-static var _last_receive_time: Dictionary = {}  # peer_id -> int (msec)
-
-static func validate_movement_v2(peer_id: int, old_pos: Vector3, new_pos: Vector3, update_timing: bool = true) -> bool:
-	## Validate movement speed using real elapsed time between packets.
-	## Set update_timing=false for redundant entries processed in the same frame.
-	var now := Time.get_ticks_msec()
-	var last: int = _last_receive_time.get(peer_id, now - 50)
-	var elapsed_ms := now - last
-	if update_timing:
-		_last_receive_time[peer_id] = now
-	var delta := clampf(float(elapsed_ms) / 1000.0, 0.016, 0.5)
-	var distance := old_pos.distance_to(new_pos)
-	var speed := distance / delta
-	return speed <= MAX_SPEED * 3.0  # 3x tolerance — catches real cheats, ignores jitter
-
-
-static func clear_timing_data() -> void:
-	_last_receive_time.clear()
+static func validate_input_direction(direction: Vector2) -> Vector2:
+	## Sanitize input direction: clamp to unit length.
+	if direction.length_squared() > 1.01:
+		return direction.normalized()
+	return direction
 
 
 static func validate_placement(player_pos: Vector3, placement_pos: Vector3) -> bool:

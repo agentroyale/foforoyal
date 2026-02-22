@@ -40,8 +40,12 @@ var movement_disabled: bool = false
 var _is_replaying: bool = false
 var _prediction: ClientPrediction = null
 var _visual_offset: Vector3 = Vector3.ZERO
+var _camera_offset: Vector3 = Vector3.ZERO
 var _was_on_floor: bool = true
 var _step_timer: float = 0.0
+
+# Server-authoritative: last input used (for reference/tests)
+var _last_server_input: Dictionary = {}
 
 # Network state for remote players (set by NetworkSync)
 var remote_on_floor: bool = true
@@ -137,29 +141,44 @@ func disable_movement() -> void:
 func enable_movement() -> void:
 	movement_disabled = false
 
-func _physics_process(delta: float) -> void:
-	if multiplayer.has_multiplayer_peer() and not is_multiplayer_authority():
-		return
+
+func server_simulate_tick(input: Dictionary, delta: float) -> void:
+	## Called by NetworkSync on the server for remote players.
+	## Receives input from jitter buffer and runs physics simulation.
 	if movement_disabled:
 		return
-	var input := _gather_local_input()
+	_last_server_input = input
 	simulate_tick(input, delta)
-	# Record for client-side prediction (multiplayer only)
-	if _prediction:
-		var state := {
-			"position": global_position,
-			"velocity_y": velocity.y,
-			"is_crouching": is_crouching,
-		}
-		_prediction.record_input(input, state)
-	# Footstep audio
-	if not _is_replaying:
-		_update_footsteps(delta)
-	# Decay visual offset (smoothing corrections over ~10 frames)
-	if _visual_offset.length() > 0.01:
-		_visual_offset *= 0.9
-	else:
-		_visual_offset = Vector3.ZERO
+
+
+func _physics_process(delta: float) -> void:
+	# Singleplayer or local authority: process inputs locally
+	if not multiplayer.has_multiplayer_peer() or is_multiplayer_authority():
+		if movement_disabled:
+			return
+		var input := _gather_local_input()
+		simulate_tick(input, delta)
+		# Record for client-side prediction (multiplayer only)
+		if _prediction:
+			var state := {
+				"position": global_position,
+				"velocity_y": velocity.y,
+				"is_crouching": is_crouching,
+			}
+			_prediction.record_input(input, state)
+		# Footstep audio
+		if not _is_replaying:
+			_update_footsteps(delta)
+		# Decay visual offset (smoothing corrections over ~10 frames)
+		_decay_visual_offset()
+		return
+
+	# Server simulates remote players via NetworkSync (jitter buffer)
+	if multiplayer.is_server():
+		return
+
+	# Remote client: interpolation handles rendering (no physics here)
+	return
 
 
 func _process(_delta: float) -> void:
@@ -173,22 +192,31 @@ func _process(_delta: float) -> void:
 		model.position = Vector3.ZERO
 
 
-func apply_server_correction(server_pos: Vector3, server_vel_y: float,
-		server_seq: int, server_is_crouching: bool) -> void:
+func _decay_visual_offset() -> void:
+	if _visual_offset.length() > 0.01:
+		_visual_offset *= 0.9
+	else:
+		_visual_offset = Vector3.ZERO
+
+
+func apply_server_snapshot(server_pos: Vector3, server_vel_y: float,
+		last_input_seq: int, server_is_crouching: bool) -> void:
+	## Called when client receives authoritative snapshot from server.
 	if not _prediction:
 		return
-	var result := _prediction.reconcile(server_pos, server_vel_y, server_seq,
+	var result := _prediction.reconcile(server_pos, server_vel_y, last_input_seq,
 			server_is_crouching)
 	if not result["needs_correction"]:
 		return
 
-	var error := (result["server_position"] as Vector3).distance_to(global_position)
+	var error: float = result["error_magnitude"]
 
 	if error > ClientPrediction.SNAP_THRESHOLD:
-		# Teleport (spawn, zone damage tp, etc)
+		# Hard snap: teleport (spawn, zone damage tp, etc)
 		global_position = result["server_position"]
 		velocity.y = result["server_velocity_y"]
 		_visual_offset = Vector3.ZERO
+		_camera_offset = Vector3.ZERO
 		return
 
 	# Save old predicted position for visual offset
@@ -253,7 +281,8 @@ func _handle_crouch_from_input(wants_crouch: bool, delta: float) -> void:
 	collision_shape.position.y = shape.height * 0.5
 
 	# Adjust camera pivot to follow crouch (TPS: keep at head height)
-	if not _is_replaying:
+	# Skip if camera is top_level (camera handles its own position lerp)
+	if not _is_replaying and camera_pivot and not camera_pivot.is_set_as_top_level():
 		var target_y := 1.8 if not is_crouching else 1.1
 		camera_pivot.position.y = lerp(camera_pivot.position.y, target_y, CROUCH_LERP_SPEED * delta)
 
