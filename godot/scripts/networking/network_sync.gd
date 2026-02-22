@@ -300,8 +300,10 @@ func _receive_correction(server_pos: Vector3, server_vel_y: float,
 				server_is_crouching)
 
 
-@rpc("authority", "unreliable_ordered")
+@rpc("any_peer", "unreliable_ordered")
 func _receive_state(pos: Vector3, rot_y: float, pitch: float, _server_time_msec: int = 0, h_speed: float = 0.0, anim_flags: int = 0) -> void:
+	if not multiplayer.is_server() and multiplayer.get_remote_sender_id() != 1:
+		return  # Only accept state from server
 	NetworkManager.record_sync_received()
 	_apply_remote_state(pos, rot_y, pitch, h_speed, anim_flags)
 
