@@ -23,8 +23,10 @@ var is_updating: bool = false
 
 
 func _ready() -> void:
-	# Don't check for updates on headless server
+	# Don't check for updates on headless server or in editor
 	if DisplayServer.get_name() == "headless":
+		return
+	if OS.has_feature("editor"):
 		return
 	check_for_update()
 
