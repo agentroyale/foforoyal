@@ -5,7 +5,7 @@ extends RefCounted
 ## On server correction, returns pending inputs for replay.
 
 const BUFFER_SIZE := 128
-const CORRECTION_THRESHOLD := 0.5  # meters — ignore corrections below this
+const CORRECTION_THRESHOLD := 1.0  # meters — ignore corrections below this
 const SNAP_THRESHOLD := 5.0  # teleport above this distance
 
 var _input_buffer: Array[Dictionary] = []

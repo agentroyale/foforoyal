@@ -155,9 +155,9 @@ func _physics_process(delta: float) -> void:
 	# Footstep audio
 	if not _is_replaying:
 		_update_footsteps(delta)
-	# Decay visual offset (smoothing corrections)
+	# Decay visual offset (smoothing corrections over ~10 frames)
 	if _visual_offset.length() > 0.01:
-		_visual_offset *= 0.85
+		_visual_offset *= 0.9
 	else:
 		_visual_offset = Vector3.ZERO
 

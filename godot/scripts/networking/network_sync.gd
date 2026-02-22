@@ -220,8 +220,10 @@ func _send_input(pos: Vector3, rot_y: float, pitch: float,
 
 	var sender_id := multiplayer.get_remote_sender_id()
 	var last_seq: int = _last_processed_seq.get(sender_id, -1)
+	var was_clamped := false
 
 	# Process redundant (older) entries first — packet loss recovery
+	# Use update_timing=false to avoid corrupting timing for the current entry
 	var entry_size := 6  # seq, pos.x, pos.y, pos.z, vel_y, crouch_flag
 	var entry_count := redundant.size() / entry_size
 	for i in entry_count:
@@ -230,11 +232,12 @@ func _send_input(pos: Vector3, rot_y: float, pitch: float,
 		if r_seq <= last_seq:
 			continue  # already processed
 		var r_pos := Vector3(redundant[base + 1], redundant[base + 2], redundant[base + 3])
-		# Validate redundant entry
-		if not ServerValidation.validate_movement_v2(sender_id, _last_validated_pos, r_pos):
+		# Simple distance check for redundant entries (no timing update)
+		if not ServerValidation.validate_movement_v2(sender_id, _last_validated_pos, r_pos, false):
 			var dir := (r_pos - _last_validated_pos).normalized()
 			var max_dist := ServerValidation.MAX_SPEED * 0.15  # ~3 ticks max
 			r_pos = _last_validated_pos + dir * max_dist
+			was_clamped = true
 		_last_validated_pos = r_pos
 		_last_processed_seq[sender_id] = r_seq
 
@@ -244,6 +247,7 @@ func _send_input(pos: Vector3, rot_y: float, pitch: float,
 			var dir := (pos - _last_validated_pos).normalized()
 			var max_dist := ServerValidation.MAX_SPEED * 0.1  # ~2 ticks
 			pos = _last_validated_pos + dir * max_dist
+			was_clamped = true
 
 		_last_validated_pos = pos
 		_last_processed_seq[sender_id] = seq
@@ -267,9 +271,10 @@ func _send_input(pos: Vector3, rot_y: float, pitch: float,
 		pc.network_weapon_type = (anim_flags >> 4) & 0xF
 		pc.network_move_speed = h_speed
 
-	# Send correction back to authority client
-	var corrected_seq: int = _last_processed_seq.get(sender_id, seq)
-	_receive_correction.rpc_id(sender_id, pos, vel_y, corrected_seq, is_crouching)
+	# Only send correction when server actually clamped the position
+	if was_clamped:
+		var corrected_seq: int = _last_processed_seq.get(sender_id, seq)
+		_receive_correction.rpc_id(sender_id, pos, vel_y, corrected_seq, is_crouching)
 
 	# Rebroadcast to nearby clients (excluding sender and server)
 	var server_time := Time.get_ticks_msec()

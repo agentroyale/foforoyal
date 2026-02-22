@@ -20,17 +20,18 @@ static func validate_movement(old_pos: Vector3, new_pos: Vector3, delta: float) 
 # Per-peer timing for accurate speed validation
 static var _last_receive_time: Dictionary = {}  # peer_id -> int (msec)
 
-static func validate_movement_v2(peer_id: int, old_pos: Vector3, new_pos: Vector3) -> bool:
+static func validate_movement_v2(peer_id: int, old_pos: Vector3, new_pos: Vector3, update_timing: bool = true) -> bool:
 	## Validate movement speed using real elapsed time between packets.
-	## More accurate than fixed delta — handles jitter and packet loss.
+	## Set update_timing=false for redundant entries processed in the same frame.
 	var now := Time.get_ticks_msec()
 	var last: int = _last_receive_time.get(peer_id, now - 50)
 	var elapsed_ms := now - last
-	_last_receive_time[peer_id] = now
-	var delta := clampf(float(elapsed_ms) / 1000.0, 0.01, 0.5)
+	if update_timing:
+		_last_receive_time[peer_id] = now
+	var delta := clampf(float(elapsed_ms) / 1000.0, 0.016, 0.5)
 	var distance := old_pos.distance_to(new_pos)
 	var speed := distance / delta
-	return speed <= MAX_SPEED * 1.5  # 50% tolerance for jitter
+	return speed <= MAX_SPEED * 3.0  # 3x tolerance — catches real cheats, ignores jitter
 
 
 static func clear_timing_data() -> void:
