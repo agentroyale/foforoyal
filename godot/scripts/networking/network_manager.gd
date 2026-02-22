@@ -93,10 +93,12 @@ func get_peer_count() -> int:
 func _ready() -> void:
 	var all_args := OS.get_cmdline_args() + OS.get_cmdline_user_args()
 	if "--server" in all_args:
+		# Throttle headless server to 60 FPS to avoid burning 100% CPU on idle loops
+		Engine.max_fps = 60
 		var port := _parse_arg_int("--port", DEFAULT_PORT)
 		var err := host_server(port)
 		if err == OK:
-			print("[NetworkManager] Headless server started on port %d" % port)
+			print("[NetworkManager] Headless server started on port %d (max_fps=60)" % port)
 			call_deferred("_load_server_scene")
 		else:
 			push_error("[NetworkManager] Failed to start headless server: %s" % error_string(err))
