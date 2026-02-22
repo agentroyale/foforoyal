@@ -38,6 +38,12 @@ var _last_sent_pos := Vector3.ZERO
 var _last_sent_rot := 0.0
 var _last_sent_pitch := 0.0
 
+# Server-side interpolation targets for remote players on listen server
+var _server_target_pos := Vector3(INF, INF, INF)
+var _server_target_rot_y := 0.0
+var _server_target_pitch := 0.0
+const SERVER_LERP_FACTOR := 0.5  # Converges in ~2-3 frames at 60Hz
+
 # Input redundancy: last 3 (seq, pos, vel_y, crouching) for packet loss resilience
 var _recent_send_data: Array = []
 
@@ -199,6 +205,22 @@ func _physics_process(delta: float) -> void:
 				if NetworkMetrics:
 					NetworkMetrics.record_rpc(48)
 
+	# Server-side interpolation for remote players on listen server
+	if multiplayer.is_server() and not player.is_multiplayer_authority():
+		if _server_target_pos.x != INF:
+			if player.global_position.distance_to(_server_target_pos) > POSITION_SNAP_THRESHOLD:
+				player.global_position = _server_target_pos
+				player.rotation.y = _server_target_rot_y
+				var snap_pivot := player.get_node_or_null("CameraPivot") as Node3D
+				if snap_pivot:
+					snap_pivot.rotation.x = _server_target_pitch
+			else:
+				player.global_position = player.global_position.lerp(_server_target_pos, SERVER_LERP_FACTOR)
+				player.rotation.y = lerp_angle(player.rotation.y, _server_target_rot_y, SERVER_LERP_FACTOR)
+				var lerp_pivot := player.get_node_or_null("CameraPivot") as Node3D
+				if lerp_pivot:
+					lerp_pivot.rotation.x = lerpf(lerp_pivot.rotation.x, _server_target_pitch, SERVER_LERP_FACTOR)
+
 	# Server records positions for lag compensation
 	if multiplayer.is_server() and _lag_comp:
 		var peer_id := player.get_multiplayer_authority()
@@ -251,12 +273,10 @@ func _send_input(pos: Vector3, rot_y: float, pitch: float,
 	# Track peer position for interest management
 	_peer_positions[sender_id] = pos
 
-	# Update player position on server
-	player.global_position = pos
-	player.rotation.y = rot_y
-	var pivot := player.get_node_or_null("CameraPivot") as Node3D
-	if pivot:
-		pivot.rotation.x = pitch
+	# Store targets for server-side interpolation (smooth rendering on listen server)
+	_server_target_pos = pos
+	_server_target_rot_y = rot_y
+	_server_target_pitch = pitch
 
 	# Apply animation state on server (for listen server rendering)
 	if player is PlayerController:
