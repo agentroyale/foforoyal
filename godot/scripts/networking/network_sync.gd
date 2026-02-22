@@ -308,10 +308,12 @@ func _send_input(pos: Vector3, rot_y: float, pitch: float,
 					NetworkMetrics.record_rpc(28)
 
 
-@rpc("authority", "unreliable_ordered")
+@rpc("any_peer", "unreliable_ordered")
 func _receive_correction(server_pos: Vector3, server_vel_y: float,
 		server_seq: int, server_is_crouching: bool) -> void:
 	## Server → Authority Client: correction for reconciliation.
+	if not multiplayer.is_server() and multiplayer.get_remote_sender_id() != 1:
+		return  # Only accept corrections from server
 	var player := get_parent() as PlayerController
 	if player and player.is_multiplayer_authority():
 		player.apply_server_correction(server_pos, server_vel_y, server_seq,
